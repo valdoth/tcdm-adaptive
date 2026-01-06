@@ -19,12 +19,13 @@ public class TcdrmBenchmarkPerQuery {
     private static final double BW_REMOTE_GBPS = 1.0;
     private static final double LAT_REMOTE_MS = 100.0;
 
-    private static final double COST_BW_INTRA_REGION = 0.0;
-    private static final double COST_BW_INTER_REGION = 0.01;
-    private static final double COST_BW_INTER_PROVIDER = 0.10;
+    // Coûts selon le tableau de l'article (moyenne des providers)
+    private static final double COST_BW_INTRA_DC = 0.002;        // Moyenne: (0.0015+0.002+0.004)/3
+    private static final double COST_BW_INTER_REGION = 0.008;    // Article: 0.008
+    private static final double COST_BW_INTER_PROVIDER = 0.01;   // Article: 0.01
 
-    private static final double CPU_COST_PER_HOUR = 0.02;
-    private static final double STORAGE_COST_PER_GB_PER_MONTH = 0.02;
+    private static final double CPU_COST_PER_HOUR = 0.02;        // Article: 0.020
+    private static final double STORAGE_COST_PER_GB_PER_MONTH = 0.008;  // Moyenne: (0.006+0.008+0.0096)/3
     private static final double PROCESSING_MIN_PER_GB = 0.5;
     
     private static final int POPULARITY_THRESHOLD = 200;
@@ -64,7 +65,7 @@ public class TcdrmBenchmarkPerQuery {
             // Network parameters
             double bwGbps = useLocal ? BW_LOCAL_GBPS : BW_REMOTE_GBPS;
             double latencyMs = useLocal ? LAT_LOCAL_MS : LAT_REMOTE_MS;
-            double costPerGb = useLocal ? COST_BW_INTER_REGION : COST_BW_INTER_PROVIDER;
+            double costPerGb = useLocal ? COST_BW_INTRA_DC : COST_BW_INTER_PROVIDER;
 
             // Transfer time with jitter
             double transferMs = (dataGb * 8_000.0 / bwGbps) + latencyMs;
