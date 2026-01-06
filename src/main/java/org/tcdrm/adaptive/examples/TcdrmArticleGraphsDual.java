@@ -51,8 +51,8 @@ public class TcdrmArticleGraphsDual {
         XYChart smoothedChart = createSmoothedChart(queryId, tcdrmData, norepData);
 
         // Save individual charts
-        String rawFilename = "tcdrm_dual_raw_" + queryId + ".png";
-        String smoothedFilename = "tcdrm_dual_smoothed_" + queryId + ".png";
+        String rawFilename = "images/tcdrm_dual_raw_" + queryId + ".png";
+        String smoothedFilename = "images/tcdrm_dual_smoothed_" + queryId + ".png";
         
         BitmapEncoder.saveBitmap(rawChart, rawFilename, BitmapEncoder.BitmapFormat.PNG);
         BitmapEncoder.saveBitmap(smoothedChart, smoothedFilename, BitmapEncoder.BitmapFormat.PNG);
@@ -61,8 +61,8 @@ public class TcdrmArticleGraphsDual {
         System.out.println("✓ Smoothed chart: " + smoothedFilename);
         
         // Create combined image (side by side)
-        combineTwoCharts(rawChart, smoothedChart, "tcdrm_dual_combined_" + queryId + ".png");
-        System.out.println("✓ Combined chart: tcdrm_dual_combined_" + queryId + ".png\n");
+        combineTwoCharts(rawChart, smoothedChart, "images/tcdrm_dual_combined_" + queryId + ".png");
+        System.out.println("✓ Combined chart: images/tcdrm_dual_combined_" + queryId + ".png\n");
     }
 
     private static XYChart createRawChart(String queryId, BenchmarkDataPerQuery tcdrm, BenchmarkDataPerQuery norep) {

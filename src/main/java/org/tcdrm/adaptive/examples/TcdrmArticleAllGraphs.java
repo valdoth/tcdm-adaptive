@@ -106,7 +106,7 @@ public class TcdrmArticleAllGraphs {
         addSeries(smoothChart, "NOREP", norepX, norepSmoothed, new Color(255, 127, 14), 2.5f);
         
         // Combine side by side
-        combineTwoCharts(rawChart, smoothChart, "tcdrm_combined_" + graphType + "_" + queryId + ".png");
+        combineTwoCharts(rawChart, smoothChart, "images/tcdrm_combined_" + graphType + "_" + queryId + ".png");
         System.out.println("  ✓ " + title + " (combined)");
     }
 
