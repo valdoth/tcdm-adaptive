@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 """
-Client Python pour Py4J - Version pour génération de graphes
-Charge le modèle Q-Learning entraîné et se connecte au Gateway Java
-Implémente les callbacks nécessaires pour exécuter des épisodes complets
+Client Python pour Py4J - Version avec actions optimales pré-générées
+Charge les actions optimales depuis un fichier et les applique de manière répétée
 """
 
 import argparse
@@ -23,104 +21,70 @@ from envs.tcdrm_env import TcdrmAdaptiveEnv
 from agents.tabular_qlearning import TabularQLearningAgent
 
 
-class PythonQLearningCallback:
+class PythonRLOptimalActions:
     """
-    Pont entre Python et Java pour exécuter le modèle RL entraîné
+    Pont entre Python et Java pour exécuter les actions optimales pré-générées
     Implémente l'interface Java PythonRLBridge via Py4J
     """
     
     class Java:
         implements = ["org.tcdrm.adaptive.rl.PythonRLBridge"]
     
-    def __init__(self, model_path: str):
+    def __init__(self, optimal_actions_path: str):
         """
-        Initialise le pont avec le modèle entraîné
+        Initialise le pont avec les actions optimales pré-générées
         
         Args:
-            model_path: Chemin vers le fichier .pkl du modèle entraîné
+            optimal_actions_path: Chemin vers le fichier .pkl des actions optimales
         """
-        print(f"📦 Chargement du modèle depuis: {model_path}")
+        print(f"📦 Chargement des actions optimales depuis: {optimal_actions_path}")
         
-        # Charger le modèle entraîné
-        with open(model_path, 'rb') as f:
-            model_data = pickle.load(f)
+        with open(optimal_actions_path, 'rb') as f:
+            data = pickle.load(f)
         
-        # Reconstruire l'agent
-        self.agent = TabularQLearningAgent(
-            n_states=model_data['n_states'],
-            n_actions=model_data['n_actions'],
-            learning_rate=model_data['learning_rate'],
-            discount_factor=model_data['discount_factor'],
-            epsilon=0.0,  # Mode exploitation uniquement
-            epsilon_decay=1.0,
-            epsilon_min=0.0
-        )
+        self.scenario = data['scenario']
+        self.data_gb = data['data_gb']
+        self.optimal_actions = data['actions']
+        self.n_queries = data['n_queries']
         
-        # Charger la Q-table entraînée
-        self.agent.q_table = model_data['q_table']
+        print(f"✅ Actions optimales chargées:")
+        print(f"   Scénario: {self.scenario}")
+        print(f"   Taille des données: {self.data_gb:.2f} GB")
+        print(f"   Nombre d'actions: {self.n_queries}")
         
-        print(f"✅ Modèle chargé:")
-        print(f"   - États: {model_data['n_states']}")
-        print(f"   - Actions: {model_data['n_actions']}")
-        print(f"   - Episodes d'entraînement: {model_data.get('episodes_trained', 'N/A')}")
+        # Statistiques sur les actions
+        action_names = ['CREATE', 'DELETE', 'DO_NOTHING']
+        action_counts = [self.optimal_actions.count(i) for i in range(3)]
+        print(f"   Distribution:")
+        for name, count in zip(action_names, action_counts):
+            percentage = (count / self.n_queries) * 100
+            print(f"     {name}: {count} ({percentage:.1f}%)")
+        print()
         
-        # Environnement pour exécution
+        # Variables d'état
         self.env = None
         self.current_state = None
-        
-    def register_to_java(self, java_agent, gateway):
-        """
-        Enregistre la Q-table dans l'agent Java
-        
-        Args:
-            java_agent: Instance de PythonQLearningAgent Java
-            gateway: JavaGateway pour la conversion de types
-        """
-        print("📡 Enregistrement de la Q-table dans Java...")
-        
-        # Convertir la Q-table en format compatible Py4J
-        # On doit aplatir la Q-table et l'envoyer ligne par ligne
-        n_states = int(self.agent.n_states)  # Convertir en int Python natif
-        n_actions = int(self.agent.n_actions)  # Convertir en int Python natif
-        
-        # Informations sur le modèle
-        info = f"Q-Learning Model (States: {n_states}, Actions: {n_actions})"
-        
-        # Enregistrer les dimensions d'abord
-        java_agent.setQTableDimensions(n_states, n_actions)
-        
-        # Enregistrer chaque ligne de la Q-table
-        for state_idx in range(n_states):
-            q_values = self.agent.q_table[state_idx].tolist()
-            # Convertir la liste Python en ArrayList Java
-            java_list = ListConverter().convert(q_values, gateway._gateway_client)
-            java_agent.setQTableRow(state_idx, java_list)
-        
-        # Marquer le modèle comme chargé
-        java_agent.setModelInfo(info)
-        
-        print(f"✅ Q-table enregistrée dans Java: {n_states} états × {n_actions} actions")
+        self.current_query_idx = 0
     
     def resetEpisode(self, data_gb: float, seed: int):
         """
-        Réinitialise un épisode dans l'environnement Python
+        Réinitialise un épisode
         Appelé depuis Java via Py4J (implémente PythonRLBridge.resetEpisode)
         
         Args:
-            data_gb: Taille des données en GB
+            data_gb: Taille des données en GB (ignorée, on utilise self.data_gb)
             seed: Seed pour la reproductibilité
         """
-        print(f"   🔄 Reset épisode: data_gb={data_gb}, seed={seed}")
+        print(f"   🔄 Reset épisode: data_gb={self.data_gb}, seed={seed}")
         
         # Créer ou réinitialiser l'environnement
         if self.env is None:
-            self.env = TcdrmAdaptiveEnv(data_gb=data_gb)
+            self.env = TcdrmAdaptiveEnv(data_gb=self.data_gb)
         
         # Reset l'environnement
         observation, info = self.env.reset(seed=seed)
         self.current_state = observation
-        
-        # Ne rien retourner (void) pour éviter les problèmes de sérialisation Py4J
+        self.current_query_idx = 0
     
     def getCurrentState(self):
         """
@@ -143,33 +107,25 @@ class PythonQLearningCallback:
     
     def selectAction(self, state):
         """
-        Sélectionne une action en utilisant la Q-table entraînée
+        Retourne l'action optimale pré-générée pour la requête actuelle
         Appelé depuis Java via callback
         
         Args:
-            state: État sous forme de liste ou array
+            state: État sous forme de liste (ignoré, on utilise l'action pré-générée)
         
         Returns:
-            Index de l'action (0=CREATE, 1=DELETE, 2=DO_NOTHING)
+            Index de l'action optimale
         """
-        if isinstance(state, list):
-            state = np.array(state, dtype=np.float32)
-        
-        # Discrétiser l'état et choisir l'action
-        state_index = self.agent.discretize_state(state)
-        action = self.agent.select_action(state_index, training=False)
+        # Utiliser l'action pré-générée pour cette requête
+        # Si on dépasse le nombre d'actions, on boucle (répétition)
+        action_idx = self.current_query_idx % len(self.optimal_actions)
+        action = self.optimal_actions[action_idx]
         
         return int(action)
     
-    def get_bridge_instance(self):
-        """
-        Retourne cette instance (pour que Java puisse obtenir une référence)
-        """
-        return self
-    
     def executeStep(self, action: int):
         """
-        Exécute un step dans l'environnement
+        Exécute un step dans l'environnement avec l'action donnée
         Appelé depuis Java via callback
         
         Args:
@@ -185,6 +141,7 @@ class PythonQLearningCallback:
         # Exécuter l'action dans l'environnement
         observation, reward, terminated, truncated, info = self.env.step(action)
         self.current_state = observation
+        self.current_query_idx += 1
         
         # Extraire les métriques de l'info
         latency = info.get('latency', 100.0)
@@ -205,10 +162,10 @@ class PythonQLearningCallback:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Client Python pour Py4J - Génération de graphes avec modèle RL'
+        description='Client Python pour Py4J - Actions optimales pré-générées'
     )
-    parser.add_argument('--model', type=str, required=True,
-                       help='Chemin vers le modèle entraîné (.pkl)')
+    parser.add_argument('--actions', type=str, required=True,
+                       help='Chemin vers les actions optimales (.pkl)')
     parser.add_argument('--host', type=str, default='localhost',
                        help='Hôte du Gateway Java')
     parser.add_argument('--port', type=int, default=25333,
@@ -217,17 +174,17 @@ def main():
     args = parser.parse_args()
     
     print("="*80)
-    print("CLIENT PYTHON PY4J - GÉNÉRATION DE GRAPHES AVEC MODÈLE RL")
+    print("CLIENT PYTHON PY4J - ACTIONS OPTIMALES PRÉ-GÉNÉRÉES")
     print("="*80)
     print()
     
-    # Vérifier que le modèle existe
-    if not os.path.exists(args.model):
-        print(f"❌ ERREUR: Modèle introuvable: {args.model}")
+    # Vérifier que le fichier d'actions existe
+    if not os.path.exists(args.actions):
+        print(f"❌ ERREUR: Fichier d'actions introuvable: {args.actions}")
         sys.exit(1)
     
-    # Charger le modèle
-    bridge = PythonQLearningCallback(args.model)
+    # Charger les actions optimales
+    bridge = PythonRLOptimalActions(args.actions)
     
     # Se connecter au Gateway Java
     print(f"\n📡 Connexion au Gateway Java sur {args.host}:{args.port}...")
@@ -254,14 +211,13 @@ def main():
         print("✅ Connexion établie avec le Gateway Java")
         print()
         
-        # Enregistrer la Q-table dans l'agent Java
-        java_agent = java_gateway.getPythonAgent()
-        bridge.register_to_java(java_agent, gateway)
-        
         # Enregistrer le pont Python dans l'agent
-        # Maintenant que bridge implémente l'interface Java PythonRLBridge,
-        # Py4J peut le passer correctement
+        java_agent = java_gateway.getPythonAgent()
         java_agent.setPythonBridge(bridge)
+        
+        # Signaler que le modèle est chargé (actions optimales)
+        model_info = f"Optimal Actions for {bridge.scenario} ({bridge.n_queries} actions)"
+        java_agent.setModelInfo(model_info)
         
         # Signaler à Java que Python est prêt
         gateway.jvm.System.setProperty("python_bridge_ready", "true")
@@ -270,28 +226,31 @@ def main():
         print("="*80)
         print("✅ CLIENT PYTHON PRÊT")
         print("="*80)
-        print("Le modèle Python RL est maintenant disponible pour Java")
-        print("Java peut maintenant générer les graphes avec le vrai modèle entraîné")
+        print("Les actions optimales sont maintenant disponibles pour Java")
+        print("Java peut maintenant générer les graphes en répétant ces actions")
         print()
         print("Appuyez sur Ctrl+C pour arrêter le client...")
         print()
         
         # Garder le client actif
-        import time
-        while True:
-            time.sleep(1)
-            
-    except KeyboardInterrupt:
-        print("\n\n🛑 Arrêt du client Python...")
-        gateway.shutdown()
-        print("✅ Client arrêté")
-        
+        try:
+            import time
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n👋 Arrêt du client Python...")
+    
     except Exception as e:
-        print(f"\n❌ ERREUR: {e}")
+        print(f"❌ ERREUR: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        try:
+            gateway.shutdown()
+        except:
+            pass
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
