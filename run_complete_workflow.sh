@@ -13,7 +13,11 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_DIR="$PROJECT_ROOT/python_rl"
+PYTHON_DIR="$PROJECT_ROOT/tcdrm_gym"
+
+# Ports (allow override via env)
+GATEWAY_PORT="${TCDRM_PY4J_PORT:-25333}"
+TRAIN_PORT="${TCDRM_TRAIN_PORT:-25335}"
 PYTHON_PID=""
 JAVA_PID=""
 TRAINING_SERVER_PID=""
@@ -24,8 +28,8 @@ cleanup_initial() {
     pkill -f "TrainingServer" 2>/dev/null || true
     pkill -f "connect_to_java.py" 2>/dev/null || true
     pkill -f "train_cloudsim.py" 2>/dev/null || true
-    lsof -ti:25333 2>/dev/null | xargs kill -9 2>/dev/null || true
-    lsof -ti:25335 2>/dev/null | xargs kill -9 2>/dev/null || true
+    lsof -ti:"$GATEWAY_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    lsof -ti:"$TRAIN_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
     sleep 2
     
     echo -e "${BLUE}🧹 Removing previous files...${NC}"
@@ -33,8 +37,8 @@ cleanup_initial() {
     
     if [ "$SKIP_TRAINING" = false ]; then
         echo "   Removing old models (retraining planned)..."
-        rm -f "$PYTHON_DIR/models/qlearning_cloudsim.pkl" 2>/dev/null || true
-        rm -f "$PYTHON_DIR/models/dqn_cloudsim.pt" 2>/dev/null || true
+            rm -f "$PYTHON_DIR/models/qlearning_cloudsim.pkl" 2>/dev/null || true
+            rm -f "$PYTHON_DIR/models/dqn_cloudsim.pt" 2>/dev/null || true
     else
         echo "   Keeping existing models..."
     fi
@@ -117,24 +121,35 @@ if [ "$SKIP_TRAINING" = false ]; then
     echo "  This ensures training and inference use the same environment."
     echo ""
     
-    # Start Java Training Server
+    # Ensure shaded JAR exists (needed to run specific main reliably)
+    if ! ls "$PROJECT_ROOT/target"/*-with-dependencies.jar >/dev/null 2>&1; then
+        echo ">>> Building shaded JAR for TrainingServer..."
+        mvn -q -DskipTests package || { echo -e "${RED}❌ Maven build failed${NC}"; exit 1; }
+    fi
+
+    # Start Java Training Server from shaded JAR to avoid exec:java mainClass override issues
     echo ">>> Starting Java TrainingServer..."
-    mvn exec:java -Dexec.mainClass="org.tcdrm.adaptive.training.TrainingServer" -q > /tmp/training_server.log 2>&1 &
+    JAR_FILE=$(ls -1 "$PROJECT_ROOT/target"/*-with-dependencies.jar | head -n1)
+    if [ -z "$JAR_FILE" ]; then
+        echo -e "${RED}❌ Could not find shaded JAR in target/*.with-dependencies.jar${NC}"
+        exit 1
+    fi
+    nohup java -cp "$JAR_FILE" org.tcdrm.adaptive.training.TrainingServer > /tmp/training_server.log 2>&1 &
     TRAINING_SERVER_PID=$!
     
     # Wait for server to start
     sleep 5
-    for i in {1..10}; do
-        if lsof -i:25335 > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ TrainingServer ready on port 25335${NC}"
+    for i in {1..15}; do
+        if lsof -i:"$TRAIN_PORT" > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ TrainingServer ready on port ${TRAIN_PORT}${NC}"
             break
         fi
-        if [ $i -eq 10 ]; then
-            echo -e "${RED}❌ ERROR: TrainingServer not ready after 20s${NC}"
+        if [ $i -eq 15 ]; then
+            echo -e "${RED}❌ ERROR: TrainingServer not ready after 30s${NC}"
             tail -30 /tmp/training_server.log
             exit 1
         fi
-        echo "   Waiting... ($i/10)"
+        echo "   Waiting... ($i/15)"
         sleep 2
     done
     echo ""
@@ -149,6 +164,7 @@ if [ "$SKIP_TRAINING" = false ]; then
     uv run python train_cloudsim.py \
         --agent qlearning \
         --episodes $N_EPISODES \
+        --port "$TRAIN_PORT" \
         --output models/qlearning_cloudsim.pkl
     
     QLEARNING_MODEL="$PYTHON_DIR/models/qlearning_cloudsim.pkl"
@@ -163,6 +179,7 @@ if [ "$SKIP_TRAINING" = false ]; then
     uv run python train_cloudsim.py \
         --agent dqn \
         --episodes $N_EPISODES \
+        --port "$TRAIN_PORT" \
         --output models/dqn_cloudsim.pt
     
     DQN_MODEL="$PYTHON_DIR/models/dqn_cloudsim.pt"
@@ -255,8 +272,8 @@ if [ "$SKIP_SIMULATION" = false ]; then
     sleep 10
     
     for i in {1..10}; do
-        if lsof -i:25333 > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ Gateway ready on port 25333${NC}"
+        if lsof -i:"$GATEWAY_PORT" > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Gateway ready on port ${GATEWAY_PORT}${NC}"
             break
         fi
         if [ $i -eq 10 ]; then
@@ -274,13 +291,15 @@ if [ "$SKIP_SIMULATION" = false ]; then
     echo ">>> Starting Python client..."
     cd "$PYTHON_DIR"
     
-    if [ -f "$DQN_MODEL" ]; then
+        if [ -f "$DQN_MODEL" ]; then
         uv run python connect_to_java.py \
             --qlearning-model "$QLEARNING_MODEL" \
-            --dqn-model "$DQN_MODEL" > /tmp/python_client.log 2>&1 &
+            --dqn-model "$DQN_MODEL" \
+            --port "$GATEWAY_PORT" > /tmp/python_client.log 2>&1 &
     else
         uv run python connect_to_java.py \
-            --qlearning-model "$QLEARNING_MODEL" > /tmp/python_client.log 2>&1 &
+            --qlearning-model "$QLEARNING_MODEL" \
+            --port "$GATEWAY_PORT" > /tmp/python_client.log 2>&1 &
     fi
     
     PYTHON_PID=$!

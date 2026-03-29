@@ -5,6 +5,9 @@ import org.tcdrm.adaptive.core.TcdrmConstants;
 import org.tcdrm.adaptive.gateway.Py4JGateway;
 import org.tcdrm.adaptive.rl.PythonRLBridge;
 
+import ch.qos.logback.classic.Level;
+import org.cloudsimplus.util.Log;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -19,7 +22,17 @@ public class TcdrmMain {
     private static Py4JGateway gateway;
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        printHeader();
+        TcdrmMainArgs opts = TcdrmMainArgs.parse(args);
+        if (opts.help) {
+            TcdrmMainArgs.printHelp();
+            return;
+        }
+        if (opts.headlessCharts) {
+            System.setProperty("java.awt.headless", "true");
+        }
+        applyCloudSimLogLevel(opts.quietCloudSim);
+
+        printHeader(opts);
         new File("images").mkdirs();
 
         // Phase 1: Paper reproduction (TCDRM vs NoRepLc)
@@ -61,13 +74,26 @@ public class TcdrmMain {
         
         System.out.println("\n✅ Phase 1 complete: Paper figures generated (Figs 2-7 + Metrics + Popularity)");
 
+        if (opts.phase1Only) {
+            System.out.println("\n  (--phase1-only) Phase 2 skipped. Connect Python + relancer sans cette option pour le RL.");
+            printFooter();
+            return;
+        }
+
         // Phase 2: RL extensions
         System.out.println("\n━━━ PHASE 2: RL Extensions (Q-Learning + DQN) ━━━");
-        
+        System.out.println("  Hint: dans un autre terminal — cd tcdrm_gym && uv run python connect_to_java.py --port 25333");
+
         gateway = new Py4JGateway();
-        gateway.start();
+        int gwPort;
+        try {
+            gwPort = Integer.parseInt(System.getenv().getOrDefault("TCDRM_PY4J_PORT", "25333"));
+        } catch (NumberFormatException nfe) {
+            gwPort = 25333;
+        }
+        gateway.start(gwPort);
         
-        PythonRLBridge bridge = waitForPythonConnection();
+        PythonRLBridge bridge = waitForPythonConnection(opts.pythonConnectTimeoutSec);
         if (bridge != null) {
             bridge.resetCounters();
             BenchmarkData qlSimple = BenchmarkRunner.runRL(bridge, "qlearning", "QLearning_Simple", false, 1000L);
@@ -143,7 +169,7 @@ public class TcdrmMain {
         printFooter();
     }
     
-    private static void printHeader() {
+    private static void printHeader(TcdrmMainArgs opts) {
         System.out.println("=".repeat(80));
         System.out.println("  TCDRM-ADAPTIVE — CloudSimPlus Simulation");
         System.out.println("  Simple: " + TcdrmConstants.RELATIONS_SIMPLE + " relations x " 
@@ -152,6 +178,10 @@ public class TcdrmMain {
             + (int)(TcdrmConstants.AVG_RELATION_SIZE_GB * 1000) + " MB");
         System.out.println("  Queries: " + TcdrmConstants.MAX_QUERIES 
             + ", P_SLA: " + TcdrmConstants.POPULARITY_THRESHOLD);
+        System.out.println("  Options: headlessCharts=" + opts.headlessCharts
+            + ", phase1Only=" + opts.phase1Only
+            + ", pyTimeout=" + opts.pythonConnectTimeoutSec + "s"
+            + ", quietCloudSim=" + opts.quietCloudSim);
         System.out.println("=".repeat(80));
     }
     
@@ -162,9 +192,10 @@ public class TcdrmMain {
         System.out.println("=".repeat(80));
     }
     
-    private static PythonRLBridge waitForPythonConnection() throws InterruptedException {
-        System.out.println("  Waiting for Python client (timeout: 120s)...");
-        int maxWait = 120, elapsed = 0;
+    private static PythonRLBridge waitForPythonConnection(int maxWaitSeconds) throws InterruptedException {
+        System.out.println("  Waiting for Python client (timeout: " + maxWaitSeconds + "s)...");
+        int maxWait = maxWaitSeconds;
+        int elapsed = 0;
         
         while (elapsed < maxWait) {
             Object bridge = gateway.getPythonBridge();
@@ -179,5 +210,10 @@ public class TcdrmMain {
             }
         }
         return null;
+    }
+
+    private static void applyCloudSimLogLevel(boolean quiet) {
+        // API officielle CloudSim Plus (cf. exemples Log.setLevel)
+        Log.setLevel(quiet ? Level.WARN : Level.INFO);
     }
 }

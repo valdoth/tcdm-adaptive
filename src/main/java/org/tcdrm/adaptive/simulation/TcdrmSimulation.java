@@ -291,11 +291,13 @@ public class TcdrmSimulation {
     
     /**
      * Construit l'état pour les modèles RL.
-     * [latency, budget, replicas, normalizedPopularity, cost, tSlaViolation, cSlaViolation, queryProgress]
-     * 
-     * La popularité EMA est une FEATURE D'ÉTAT (observation).
-     * L'agent RL APPREND via la reward function quand répliquer.
-     * Pas de seuils fixes - apprentissage adaptatif.
+     * [latency, budget, replicas, normalizedPopularity, cost, tSlaViolation, cSlaViolation,
+     *  queryProgress, pSlaProgress]
+     *
+     * {@code pSlaProgress} = min(1, queryIndex / P_SLA) aligné avec l'article (P_SLA = 200 requêtes
+     * avant zone de décision TCDRM). Utilisé uniquement par les agents RL ; NoRep/TCDRM inchangés.
+     *
+     * La popularité EMA reste une feature d'observation ; l'agent RL apprend via la récompense.
      */
     public double[] buildRLState(double lastLatency, double lastCost) {
         double tSla = complex ? TcdrmConstants.TSLA_COMPLEX_MS : TcdrmConstants.TSLA_SIMPLE_MS;
@@ -305,6 +307,9 @@ public class TcdrmSimulation {
         // Popularité EMA (0-1) - feature d'observation pour l'agent
         double normalizedPopularity = emaPopularity / TcdrmConstants.EMA_REPLICATION_THRESHOLD;
         normalizedPopularity = Math.min(1.5, normalizedPopularity);
+
+        double pSlaProgress = Math.min(1.0,
+            queryCount / (double) Math.max(1, TcdrmConstants.POPULARITY_THRESHOLD));
         
         return new double[] {
             lastLatency / tSla,                                    // Normalized latency
@@ -314,7 +319,8 @@ public class TcdrmSimulation {
             lastCost / cSla,                                       // Normalized cost
             lastLatency > tSla ? 1.0 : 0.0,                       // T_SLA violation
             lastCost > cSla ? 1.0 : 0.0,                          // C_SLA violation
-            (double) queryCount / TcdrmConstants.MAX_QUERIES       // Query progress
+            (double) queryCount / TcdrmConstants.MAX_QUERIES,      // Query progress
+            pSlaProgress                                           // Index requête vs P_SLA (paper)
         };
     }
 

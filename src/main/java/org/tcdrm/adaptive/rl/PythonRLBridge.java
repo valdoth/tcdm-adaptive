@@ -7,7 +7,7 @@ package org.tcdrm.adaptive.rl;
  * 
  * Actions: 0=NOOP, 1=REPLICATE, 2=DELETE
  * State: [latency, budget, replicas, normalizedPopularity, cost,
- *         tSlaViolation, cSlaViolation, queryProgress]
+ *         tSlaViolation, cSlaViolation, queryProgress, pSlaProgress]
  */
 public interface PythonRLBridge {
     

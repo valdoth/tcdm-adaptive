@@ -18,6 +18,7 @@ public class TrainingEnvironment {
     private TcdrmSimulation simulation;
     private final long seed;
     private final boolean complex;
+    private final TrainingSettings settings;
     
     private int currentQuery;
     private double lastLatency;
@@ -25,17 +26,22 @@ public class TrainingEnvironment {
     private double tSla;
     private double cumulativeReward;
     
-    public TrainingEnvironment(long seed, boolean complex) {
+    public TrainingEnvironment(long seed, boolean complex) { this(seed, complex, new TrainingSettings()); }
+
+    public TrainingEnvironment(long seed, boolean complex, TrainingSettings settings) {
         this.seed = seed;
         this.complex = complex;
-        this.tSla = complex ? TcdrmConstants.TSLA_COMPLEX_MS : TcdrmConstants.TSLA_SIMPLE_MS;
+        this.settings = settings != null ? settings : new TrainingSettings();
+        double tSimple = this.settings.getTSlaSimpleMs() > 0 ? this.settings.getTSlaSimpleMs() : TcdrmConstants.TSLA_SIMPLE_MS;
+        double tComplex = this.settings.getTSlaComplexMs() > 0 ? this.settings.getTSlaComplexMs() : TcdrmConstants.TSLA_COMPLEX_MS;
+        this.tSla = complex ? tComplex : tSimple;
         reset();
     }
     
     /**
      * Réinitialise l'environnement et retourne l'état initial.
      * 
-     * @return État initial [8 dimensions]
+     * @return État initial (voir {@link TcdrmSimulation#buildRLState})
      */
     public double[] reset() {
         this.simulation = new TcdrmSimulation(seed, complex);
@@ -66,7 +72,8 @@ public class TrainingEnvironment {
         cumulativeReward += reward;
         
         // Vérifier si l'épisode est terminé
-        boolean done = (currentQuery >= TcdrmConstants.MAX_QUERIES);
+        int maxEp = settings.getMaxEpisodeLength() > 0 ? settings.getMaxEpisodeLength() : TcdrmConstants.MAX_QUERIES;
+        boolean done = (currentQuery >= maxEp);
         
         // Construire l'info
         String info = String.format(
@@ -80,11 +87,14 @@ public class TrainingEnvironment {
     /**
      * Retourne l'état actuel de l'environnement.
      * 
-     * Format: [latency, budget, replicas, popularity, cost, t_sla_violation, c_sla_violation, progress]
+     * Format: [latency, budget, replicas, popularity, cost, t_sla_violation, c_sla_violation,
+     * progress, p_sla_progress]
      */
     public double[] getState() {
         return simulation.buildRLState(lastLatency, lastCost);
     }
+
+    public double getLastLatency() { return lastLatency; }
     
     /**
      * Calcule la récompense pour une action.
@@ -134,6 +144,14 @@ public class TrainingEnvironment {
      */
     public double getCumulativeReward() {
         return cumulativeReward;
+    }
+
+    public boolean isDifferentSeedOrSettings(long s, TrainingSettings st) {
+        if (this.seed != s) return true;
+        if (this.settings == null || st == null) return true; // force recreate when comparing null-defaults
+        return this.settings.getMaxEpisodeLength() != st.getMaxEpisodeLength()
+            || Double.compare(this.settings.getTSlaSimpleMs(), st.getTSlaSimpleMs()) != 0
+            || Double.compare(this.settings.getTSlaComplexMs(), st.getTSlaComplexMs()) != 0;
     }
     
     /**

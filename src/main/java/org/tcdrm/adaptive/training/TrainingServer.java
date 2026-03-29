@@ -2,6 +2,11 @@ package org.tcdrm.adaptive.training;
 
 import py4j.GatewayServer;
 
+import java.util.HashMap;
+import java.util.Map;
+import ch.qos.logback.classic.Level;
+import org.cloudsimplus.util.Log;
+
 import java.net.InetAddress;
 
 /**
@@ -19,6 +24,7 @@ public class TrainingServer {
     
     private TrainingEnvironment simpleEnv;
     private TrainingEnvironment complexEnv;
+    private TrainingSettings settings = new TrainingSettings();
     
     /**
      * Crée un nouvel environnement d'entraînement.
@@ -29,10 +35,10 @@ public class TrainingServer {
      */
     public TrainingEnvironment createEnvironment(long seed, boolean complex) {
         if (complex) {
-            complexEnv = new TrainingEnvironment(seed, true);
+            complexEnv = new TrainingEnvironment(seed, true, settings);
             return complexEnv;
         } else {
-            simpleEnv = new TrainingEnvironment(seed, false);
+            simpleEnv = new TrainingEnvironment(seed, false, settings);
             return simpleEnv;
         }
     }
@@ -104,7 +110,15 @@ public class TrainingServer {
      * Point d'entrée pour démarrer le serveur d'entraînement.
      */
     public static void main(String[] args) {
-        int port = args.length > 0 ? Integer.parseInt(args[0]) : 25335;
+        String envPort = System.getenv("TCDRM_TRAIN_PORT");
+        int defaultPort = 25335;
+        int port = defaultPort;
+        try {
+            port = args.length > 0 ? Integer.parseInt(args[0]) : (envPort != null ? Integer.parseInt(envPort) : defaultPort);
+        } catch (NumberFormatException nfe) {
+            System.err.println("⚠️  Invalid TCDRM_TRAIN_PORT, falling back to " + defaultPort);
+            port = defaultPort;
+        }
         
         System.out.println("=".repeat(70));
         System.out.println("TCDRM TRAINING SERVER - CloudSimPlus Environment for RL");
@@ -112,6 +126,8 @@ public class TrainingServer {
         
         try {
             TrainingServer server = new TrainingServer();
+            // Réduire la verbosité CloudSimPlus pendant l'entraînement
+            Log.setLevel(Level.WARN);
             
             GatewayServer gatewayServer = new GatewayServer(server, port);
             
@@ -136,4 +152,115 @@ public class TrainingServer {
             System.exit(1);
         }
     }
+
+    /**
+     * Configure la simulation depuis Python (schéma inspiré du repo de référence).
+     * Exemples de clés supportées: maxEpisodeLength (Integer), tSlaSimpleMs (Double), tSlaComplexMs (Double)
+     */
+    public void configureSimulation(Map<String, Object> params) {
+        if (params == null) return;
+        Map<String, Object> p = new HashMap<>(params);
+        Object maxEp = p.get("maxEpisodeLength");
+        if (maxEp instanceof Number n) settings.setMaxEpisodeLength(n.intValue());
+        Object tSimple = p.get("tSlaSimpleMs");
+        if (tSimple instanceof Number n) settings.setTSlaSimpleMs(n.doubleValue());
+        Object tComplex = p.get("tSlaComplexMs");
+        if (tComplex instanceof Number n) settings.setTSlaComplexMs(n.doubleValue());
+    }
+
+    /** Reset structuré (retourne un objet avec state + info). */
+    public TrainingResetResult resetStructured(boolean complex, long seed) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        if (env == null || env.isDifferentSeedOrSettings(seed, settings)) {
+            env = createEnvironment(seed, complex);
+        }
+        double[] state = env.reset();
+        TrainingStepInfo info = new TrainingStepInfo(0.0, env.getCurrentQuery(), env.getCumulativeReward());
+        return new TrainingResetResult(state, info);
+    }
+
+    /** Step structuré (retourne state + reward + done + info). */
+    public TrainingStepResult stepStructured(int action, boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        if (env == null) {
+            throw new IllegalStateException("Environment not created. Call resetStructured() first.");
+        }
+        TrainingEnvironment.StepResult r = env.step(action);
+        // Pas de troncation dans notre boucle actuelle (pas timestep), donc truncated=false
+        boolean truncated = false;
+        TrainingStepInfo info = new TrainingStepInfo(
+            env.getLastLatency(),
+            env.getCurrentQuery(),
+            env.getCumulativeReward()
+        );
+        return new TrainingStepResult(r.state(), r.reward(), r.done(), truncated, info);
+    }
+}
+
+/** Paramètres configurables de l'entraînement/simulation. */
+class TrainingSettings {
+    private int maxEpisodeLength = -1; // -1 = utiliser constantes
+    private double tSlaSimpleMs = -1;  // -1 = utiliser constantes
+    private double tSlaComplexMs = -1; // -1 = utiliser constantes
+
+    public int getMaxEpisodeLength() { return maxEpisodeLength; }
+    public void setMaxEpisodeLength(int v) { this.maxEpisodeLength = v; }
+    public double getTSlaSimpleMs() { return tSlaSimpleMs; }
+    public void setTSlaSimpleMs(double v) { this.tSlaSimpleMs = v; }
+    public double getTSlaComplexMs() { return tSlaComplexMs; }
+    public void setTSlaComplexMs(double v) { this.tSlaComplexMs = v; }
+}
+
+/** Info renvoyée à chaque reset/step (horodatage simple). */
+class TrainingStepInfo {
+    private final double lastLatencyMs;
+    private final int currentQuery;
+    private final double cumulativeReward;
+
+    public TrainingStepInfo(double lastLatencyMs, int currentQuery, double cumulativeReward) {
+        this.lastLatencyMs = lastLatencyMs;
+        this.currentQuery = currentQuery;
+        this.cumulativeReward = cumulativeReward;
+    }
+
+    public double getLastLatencyMs() { return lastLatencyMs; }
+    public int getCurrentQuery() { return currentQuery; }
+    public double getCumulativeReward() { return cumulativeReward; }
+}
+
+/** Résultat de reset structuré: état + info. */
+class TrainingResetResult {
+    private final double[] state;
+    private final TrainingStepInfo info;
+
+    public TrainingResetResult(double[] state, TrainingStepInfo info) {
+        this.state = state;
+        this.info = info;
+    }
+
+    public double[] getState() { return state; }
+    public TrainingStepInfo getInfo() { return info; }
+}
+
+/** Résultat de step structuré: état + reward + done + truncated + info. */
+class TrainingStepResult {
+    private final double[] state;
+    private final double reward;
+    private final boolean terminated;
+    private final boolean truncated;
+    private final TrainingStepInfo info;
+
+    public TrainingStepResult(double[] state, double reward, boolean terminated, boolean truncated, TrainingStepInfo info) {
+        this.state = state;
+        this.reward = reward;
+        this.terminated = terminated;
+        this.truncated = truncated;
+        this.info = info;
+    }
+
+    public double[] getState() { return state; }
+    public double getReward() { return reward; }
+    public boolean isTerminated() { return terminated; }
+    public boolean isTruncated() { return truncated; }
+    public TrainingStepInfo getInfo() { return info; }
 }
