@@ -26,3 +26,6 @@ Test.java
 *.jar
 *.~lock*
 ~$*
+
+external/
+examples/
