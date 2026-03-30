@@ -142,6 +142,8 @@ class DQNAgent:
 		epsilon: float = 1.0,
 		epsilon_min: float = 0.01,
 		epsilon_decay_lambda: float = 0.0005,
+		epsilon_schedule: str = 'exp',
+		epsilon_linear_steps: int = 10000,
 		buffer_capacity: int = 50000,
 		batch_size: int = 64,
 		target_update_freq: int = 1000,
@@ -150,7 +152,9 @@ class DQNAgent:
 		use_prioritized_replay: bool = True,
 		tau: float = 0.005,
 		gradient_clip: float = 1.0,
-		device: str = None
+		device: str = None,
+		lr_scheduler: str = 'none',
+		scheduler_params: dict | None = None
 	):
 		if hidden_dims is None:
 			hidden_dims = [64, 64]
@@ -160,6 +164,8 @@ class DQNAgent:
 		self.epsilon = epsilon
 		self.epsilon_min = epsilon_min
 		self.epsilon_decay_lambda = epsilon_decay_lambda
+		self.epsilon_schedule = epsilon_schedule
+		self.epsilon_linear_steps = max(1, epsilon_linear_steps)
 		self.batch_size = batch_size
 		self.target_update_freq = target_update_freq
 		self.use_double_dqn = use_double_dqn
@@ -177,11 +183,24 @@ class DQNAgent:
 		self.target_net.load_state_dict(self.policy_net.state_dict())
 		self.target_net.eval()
 		self.optimizer = optim.Adam(self.policy_net.parameters(), lr=learning_rate, weight_decay=1e-5)
+		self._init_scheduler(lr_scheduler, scheduler_params or {})
 		self.loss_fn = nn.SmoothL1Loss()
 		self.replay_buffer = PrioritizedReplayBuffer(buffer_capacity) if use_prioritized_replay else ReplayBuffer(buffer_capacity)
 		self.update_count = 0
 		self.episode_rewards = []
 		self.losses = []
+		self._eps_step = 0
+
+	def _init_scheduler(self, lr_scheduler: str, params: dict):
+		self.scheduler = None
+		if lr_scheduler == 'cosine':
+			T_max = int(params.get('T_max', 10000))
+			eta_min = float(params.get('eta_min', 1e-6))
+			self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=T_max, eta_min=eta_min)
+		elif lr_scheduler == 'step':
+			step_size = int(params.get('step_size', 1000))
+			gamma = float(params.get('gamma', 0.9))
+			self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=gamma)
     
 	def select_action(self, state: np.ndarray, training: bool = True, action_mask: np.ndarray = None) -> int:
 		if action_mask is None:
@@ -225,6 +244,8 @@ class DQNAgent:
 		loss.backward()
 		torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), self.gradient_clip)
 		self.optimizer.step()
+		if self.scheduler is not None:
+			self.scheduler.step()
 		if indices is not None:
 			self.replay_buffer.update_priorities(indices, td_errors + 1e-6)
 		self.losses.append(loss.item())
@@ -238,7 +259,23 @@ class DQNAgent:
 				self.target_net.load_state_dict(self.policy_net.state_dict())
     
 	def decay_epsilon(self):
-		self.epsilon = max(self.epsilon_min, self.epsilon * np.exp(-self.epsilon_decay_lambda))
+		# exp: eps = eps * exp(-lambda)
+		if self.epsilon_schedule == 'exp':
+			self.epsilon = max(self.epsilon_min, self.epsilon * np.exp(-self.epsilon_decay_lambda))
+		# linear: eps_t = eps0 - (eps0-eps_min)*t/steps
+		elif self.epsilon_schedule == 'linear':
+			self._eps_step += 1
+			eps0 = 1.0
+			progress = min(1.0, self._eps_step / float(self.epsilon_linear_steps))
+			self.epsilon = max(self.epsilon_min, eps0 - (eps0 - self.epsilon_min) * progress)
+		# cosine: eps oscillates but decays to epsilon_min baseline
+		elif self.epsilon_schedule == 'cosine':
+			self._eps_step += 1
+			T = max(1, self.epsilon_linear_steps)
+			cos_term = 0.5 * (1 + np.cos(np.pi * min(1.0, self._eps_step / T)))
+			self.epsilon = self.epsilon_min + (1.0 - self.epsilon_min) * cos_term
+		else:
+			self.epsilon = max(self.epsilon_min, self.epsilon * np.exp(-self.epsilon_decay_lambda))
     
 	def get_network_stats(self):
 		policy_params = sum(p.numel() for p in self.policy_net.parameters())

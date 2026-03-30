@@ -17,7 +17,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 2 : Facteur de Réplication
 
-![Replica Factor](paper_fig2_replica_factor.png)
+![Replica Factor](fig2_replica_factor.png)
 
 **Interprétation :**
 - Ce graphique montre l'évolution du nombre de réplicas en fonction du nombre de requêtes.
@@ -30,7 +30,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 3 : Impact sur le Temps de Réponse
 
-![Response Time](paper_fig3_response_time.png)
+![Response Time](fig3_response_time.png)
 
 **Interprétation :**
 - **Avant P_SLA (q < 200)** : TCDRM et NoRepLc ont des temps de réponse similaires (~200 ms pour simple, ~450 ms pour complexe).
@@ -44,7 +44,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 4 : Consommation de Bande Passante
 
-![BW Consumption](paper_fig4_bw_consumption.png)
+![BW Consumption](fig4_bw_consumption.png)
 
 **Interprétation :**
 - Ce graphique compare la consommation de bande passante entre NoRepLc et TCDRM.
@@ -58,7 +58,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 5 : Prix Moyen de la Bande Passante
 
-![Avg BW Price](paper_fig5_avg_bw_price.png)
+![Avg BW Price](fig5_avg_bw_price.png)
 
 **Interprétation :**
 - Ce graphique montre l'évolution du prix moyen par requête au fil du temps.
@@ -72,7 +72,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 6 : Prix Cumulatif de la Bande Passante
 
-![Cumulative BW Price](paper_fig6_cumulative_bw_price.png)
+![Cumulative Cost](fig6_cumulative_cost.png)
 
 **Interprétation :**
 - Ce graphique montre le coût total cumulé au fil des requêtes.
@@ -87,7 +87,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure 7 : Décomposition du Coût Total
 
-![Total Cost](paper_fig7_total_cost.png)
+![Total Cost](fig7_total_cost.png)
 
 **Interprétation :**
 - Ce graphique empilé montre la répartition des coûts entre **CPU** (bleu), **Bande passante** (rouge), et **Réplication** (jaune).
@@ -104,7 +104,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-2 : Facteur de Réplication (4 modèles)
 
-![RL Replica Factor](rl_fig2_replica_factor.png)
+![RL Replica Factor](fig1_replica_factor_4models.png)
 
 **Interprétation :**
 - Comparaison des 4 stratégies de réplication :
@@ -119,7 +119,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-3 : Impact sur le Temps de Réponse (4 modèles)
 
-![RL Response Time](rl_fig3_response_time.png)
+![RL Response Time](fig2_response_time_4models.png)
 
 **Interprétation :**
 - **NoRepLc** : Temps de réponse constant et élevé (~200 ms simple, ~450 ms complexe).
@@ -132,7 +132,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-4 : Consommation de Bande Passante (4 modèles)
 
-![RL BW Consumption](rl_fig4_bw_consumption.png)
+![RL BW Consumption](fig3_bw_consumption_4models.png)
 
 **Interprétation :**
 - **NoRepLc** : Consommation maximale (transferts inter-provider uniquement).
@@ -144,7 +144,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-5 : Prix Moyen de la Bande Passante (4 modèles)
 
-![RL Avg BW Price](rl_fig5_avg_bw_price.png)
+![RL Avg BW Price](fig4_avg_bw_price_4models.png)
 
 **Interprétation :**
 - **NoRepLc** : Prix constant (pas d'optimisation).
@@ -157,7 +157,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-6 : Prix Cumulatif de la Bande Passante (4 modèles)
 
-![RL Cumulative BW Price](rl_fig6_cumulative_bw_price.png)
+![RL Cumulative BW Price](fig5_cumulative_bw_price_4models.png)
 
 **Interprétation :**
 - **NoRepLc** : Coût cumulatif le plus élevé (ligne droite).
@@ -172,7 +172,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### Figure RL-7 : Décomposition du Coût Total (4 modèles)
 
-![RL Total Cost](rl_fig7_total_cost.png)
+![RL Total Cost](fig6_total_cost_4models.png)
 
 **Interprétation :**
 - **NoRepLc** : Coût total le plus bas mais **performance la plus mauvaise**.
@@ -186,7 +186,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 3.1 Métriques NoRepLc (Baseline sans réplication)
 
-![NoRep Metrics](tcdrm_metrics_norep_simple.png)
+![NoRep Metrics](metrics_norep_simple.png)
 
 **Interprétation :**
 - **Response Time** : Oscille autour de 200 ms avec une forte variabilité (±20 ms).
@@ -200,7 +200,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 3.2 Métriques TCDRM (Seuil fixe P_SLA = 200)
 
-![TCDRM Metrics](tcdrm_metrics_tcdrm_simple.png)
+![TCDRM Metrics](metrics_tcdrm_simple.png)
 
 **Interprétation :**
 - **Response Time** : Chute de 200 ms à ~85 ms à q=200.
@@ -214,7 +214,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 3.3 Métriques Q-Learning (Seuil adaptatif 50%)
 
-![Q-Learning Metrics](tcdrm_metrics_qlearning_simple.png)
+![Q-Learning Metrics](metrics_qlearning_simple.png)
 
 **Interprétation :**
 - **Response Time** : Chute à **q=99** (50% plus tôt que TCDRM).
@@ -227,7 +227,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 3.4 Métriques DQN (Seuil adaptatif 40%)
 
-![DQN Metrics](tcdrm_metrics_dqn_simple.png)
+![DQN Metrics](metrics_dqn_simple.png)
 
 **Interprétation :**
 - **Response Time** : Chute à **q=79** (60% plus tôt que TCDRM).
@@ -242,7 +242,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 4.1 Popularité NoRepLc
 
-![NoRep Popularity](tcdrm_popularity_norep_simple.png)
+![NoRep Popularity](popularity_norep_simple.png)
 
 **Interprétation :**
 - **Normalized Popularity** : Croît linéairement de 0 à 5 (1000 requêtes / P_SLA=200).
@@ -254,7 +254,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 4.2 Popularité TCDRM
 
-![TCDRM Popularity](tcdrm_popularity_tcdrm_simple.png)
+![TCDRM Popularity](popularity_tcdrm_simple.png)
 
 **Interprétation :**
 - **Normalized Popularity** : Même croissance linéaire.
@@ -266,7 +266,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 4.3 Popularité Q-Learning
 
-![Q-Learning Popularity](tcdrm_popularity_qlearning_simple.png)
+![Q-Learning Popularity](popularity_qlearning_simple.png)
 
 **Interprétation :**
 - **Replica Creation Timeline** : **Trigger @ q99** → Réplication à 50% du seuil P_SLA.
@@ -278,7 +278,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ### 4.4 Popularité DQN
 
-![DQN Popularity](tcdrm_popularity_dqn_simple.png)
+![DQN Popularity](popularity_dqn_simple.png)
 
 **Interprétation :**
 - **Replica Creation Timeline** : **Trigger @ q79** → Réplication à 40% du seuil P_SLA.

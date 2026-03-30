@@ -25,6 +25,17 @@ public class TrainingEnvironment {
     private double lastCost;
     private double tSla;
     private double cumulativeReward;
+    // Metrics for external-style logging
+    private int slaViolations;
+    private double cumulativeCost;
+    private int replicaChanges;
+    private int lastReplicaCount;
+    private boolean lastInvalidAction;
+    private boolean lastAssignmentSuccess;
+    private double rewardWaitTime;
+    private double rewardUnutilization;
+    private double rewardQueuePenalty;
+    private double rewardInvalidAction;
     
     public TrainingEnvironment(long seed, boolean complex) { this(seed, complex, new TrainingSettings()); }
 
@@ -49,7 +60,60 @@ public class TrainingEnvironment {
         this.lastLatency = 0.0;
         this.lastCost = 0.0;
         this.cumulativeReward = 0.0;
-        
+        this.slaViolations = 0;
+        this.cumulativeCost = 0.0;
+        this.replicaChanges = 0;
+        this.lastReplicaCount = 0;
+        this.lastInvalidAction = false;
+        this.lastAssignmentSuccess = false;
+        this.rewardWaitTime = 0.0;
+        this.rewardUnutilization = 0.0;
+        this.rewardQueuePenalty = 0.0;
+        this.rewardInvalidAction = 0.0;
+        // Optional dynamic warmup before RL actions to avoid static starts
+        int wu = settings.getWarmupQueries();
+        if (wu > 0) {
+            java.util.Random rnd = new java.util.Random(seed ^ 0x5F3759DF);
+            String strategy = settings.getWarmupStrategy();
+            double p = settings.getWarmupRandomProb();
+            for (int i = 0; i < wu; i++) {
+                TcdrmSimulation.QueryResult res;
+                if ("norep".equalsIgnoreCase(strategy)) {
+                    res = simulation.executeNoRepQuery();
+                } else if ("tcdrm".equalsIgnoreCase(strategy)) {
+                    res = simulation.executeTcdrmQuery();
+                } else {
+                    // random: choose valid RL action with probabilities
+                    int maxReplicas = TcdrmConstants.maxReplicasForQueryType(complex);
+                    int rc = simulation.getCurrentReplicaCount();
+                    int action; // 0 noop, 1 replicate, 2 delete
+                    if (rc <= 0) {
+                        action = (rnd.nextDouble() < p ? 1 : 0);
+                    } else if (rc >= maxReplicas) {
+                        action = (rnd.nextDouble() < p ? 2 : 0);
+                    } else {
+                        double r = rnd.nextDouble();
+                        if (r < p) action = 1; else if (r < 2*p) action = 2; else action = 0;
+                    }
+                    res = simulation.executeRLQuery(action);
+                }
+                // Update last known metrics; don't increment currentQuery or cumulativeReward
+                lastLatency = res.queryTimeMs();
+                lastCost = res.totalCost();
+                cumulativeCost += lastCost;
+                if (lastLatency > tSla) slaViolations++;
+                int rcNow = res.replicaCount();
+                if (rcNow != lastReplicaCount) {
+                    replicaChanges += Math.abs(rcNow - lastReplicaCount);
+                    lastReplicaCount = rcNow;
+                }
+            }
+            // Reset episode counters for RL part only
+            this.currentQuery = 0;
+            this.cumulativeReward = 0.0;
+            this.lastInvalidAction = false;
+            this.lastAssignmentSuccess = false;
+        }
         return getState();
     }
     
@@ -60,19 +124,35 @@ public class TrainingEnvironment {
      * @return StepResult contenant (état, récompense, done, info)
      */
     public StepResult step(int action) {
+        // Déterminer validité de l'action (action masking)
+        int maxEp = settings.getMaxEpisodeLength() > 0 ? settings.getMaxEpisodeLength() : TcdrmConstants.MAX_QUERIES;
+        int maxReplicas = TcdrmConstants.maxReplicasForQueryType(complex);
+        boolean canReplicate = lastReplicaCount < maxReplicas;
+        boolean canDelete = lastReplicaCount > 0;
+        lastInvalidAction = (action == 1 && !canReplicate) || (action == 2 && !canDelete);
+        lastAssignmentSuccess = (action == 1 && canReplicate) || (action == 2 && canDelete) || action == 0;
+
         // Exécuter la requête avec l'action
         TcdrmSimulation.QueryResult result = simulation.executeRLQuery(action);
         currentQuery++;
         
         lastLatency = result.queryTimeMs();
         lastCost = result.totalCost();
+        cumulativeCost += lastCost;
+        if (lastLatency > tSla) {
+            slaViolations++;
+        }
+        int rc = result.replicaCount();
+        if (rc != lastReplicaCount) {
+            replicaChanges += Math.abs(rc - lastReplicaCount);
+            lastReplicaCount = rc;
+        }
         
-        // Calculer la récompense
+        // Calculer la récompense et ses composantes
         double reward = calculateReward(result, action);
         cumulativeReward += reward;
         
         // Vérifier si l'épisode est terminé
-        int maxEp = settings.getMaxEpisodeLength() > 0 ? settings.getMaxEpisodeLength() : TcdrmConstants.MAX_QUERIES;
         boolean done = (currentQuery >= maxEp);
         
         // Construire l'info
@@ -107,29 +187,18 @@ public class TrainingEnvironment {
      */
     private double calculateReward(TcdrmSimulation.QueryResult result, int action) {
         double latency = result.queryTimeMs();
+        int replicas = result.replicaCount();
         
-        // Récompense de base: inversement proportionnelle à la latence
-        double latencyReward = 10.0 * (1.0 - Math.min(1.0, latency / 10000.0));
+        // Composantes inspirées du repo external (noms compatibles)
+        rewardWaitTime = 10.0 * (1.0 - Math.min(1.0, latency / Math.max(1.0, tSla * 5.0))); // plus c'est bas, mieux c'est
+        rewardQueuePenalty = (latency > tSla) ? -5.0 : 0.0; // proxy SLA violation
+        rewardUnutilization = -0.1 * replicas; // coût implicite de maintenance (stabilité souhaitée)
+        rewardInvalidAction = lastInvalidAction ? -1.0 : 0.0;
         
-        // Pénalité pour violation SLA
-        double slaPenalty = 0.0;
-        if (latency > tSla) {
-            slaPenalty = 5.0;
-        }
+        // Léger bonus si réplication quand latence très haute
+        double replicationBonus = (action == 1 && latency > (2.0 * tSla)) ? 1.5 : 0.0;
         
-        // Petit coût pour réplication
-        double replicationCost = 0.0;
-        if (action == 1) {
-            replicationCost = 0.5;
-        }
-        
-        // Bonus si réplication quand latence haute
-        double replicationBonus = 0.0;
-        if (action == 1 && latency > 2000.0) {
-            replicationBonus = 2.0;
-        }
-        
-        return latencyReward - slaPenalty - replicationCost + replicationBonus;
+        return rewardWaitTime + rewardQueuePenalty + rewardUnutilization + rewardInvalidAction + replicationBonus;
     }
     
     /**
@@ -144,6 +213,36 @@ public class TrainingEnvironment {
      */
     public double getCumulativeReward() {
         return cumulativeReward;
+    }
+
+    /** Nombre total de violations T_SLA dans l'épisode courant. */
+    public int getSlaViolations() { return slaViolations; }
+
+    /** Coût cumulé (toutes composantes) pour l'épisode courant. */
+    public double getCumulativeCost() { return cumulativeCost; }
+
+    /** Nombre total de changements de réplicas pendant l'épisode. */
+    public int getReplicaChanges() { return replicaChanges; }
+
+    /** Nombre de réplicas courants. */
+    public int getReplicaCount() { return simulation.getCurrentReplicaCount(); }
+
+    /** Budget restant courant. */
+    public double getBudgetRemaining() { return simulation.getCurrentBudget(); }
+
+    public boolean isInvalidActionTaken() { return lastInvalidAction; }
+    public boolean isAssignmentSuccess() { return lastAssignmentSuccess; }
+    public double getRewardWaitTime() { return rewardWaitTime; }
+    public double getRewardUnutilization() { return rewardUnutilization; }
+    public double getRewardQueuePenalty() { return rewardQueuePenalty; }
+    public double getRewardInvalidAction() { return rewardInvalidAction; }
+
+    /** Masque d'actions valides: [noop, replicate, delete] */
+    public boolean[] getActionMask() {
+        int maxReplicas = TcdrmConstants.maxReplicasForQueryType(complex);
+        boolean canReplicate = lastReplicaCount < maxReplicas;
+        boolean canDelete = lastReplicaCount > 0;
+        return new boolean[] { true, canReplicate, canDelete };
     }
 
     public boolean isDifferentSeedOrSettings(long s, TrainingSettings st) {

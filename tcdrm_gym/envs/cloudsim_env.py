@@ -118,10 +118,12 @@ class CloudSimEnv(gym.Env):
 		try:
 			result = self._server.resetStructured(bool(self.complex), int(self._seed))
 			state = result.getState()
+			infoJ = result.getInfo()
 		except Exception:
 			# Fallback compat: ancienne API
 			self._server.createEnvironment(self._seed, self.complex)
 			state = self._server.reset(self.complex)
+			infoJ = None
 		observation = np.array(list(state), dtype=np.float32)
         
 		self.episode_count += 1
@@ -131,6 +133,42 @@ class CloudSimEnv(gym.Env):
 			"complex": self.complex,
 			"seed": self._seed
 		}
+		if infoJ is not None:
+			try:
+				info.update({
+					"last_latency_ms": float(infoJ.getLastLatencyMs()),
+					"query": int(infoJ.getCurrentQuery()),
+					"cumulative_reward": float(infoJ.getCumulativeReward()),
+					"sla_violations": int(infoJ.getSlaViolations()),
+					"cumulative_cost": float(infoJ.getCumulativeCost()),
+					"replica_count": int(infoJ.getReplicaCount()),
+					"budget_remaining": float(infoJ.getBudgetRemaining()),
+					"reward_wait_time": float(infoJ.getRewardWaitTime()),
+					"reward_unutilization": float(infoJ.getRewardUnutilization()),
+					"reward_queue_penalty": float(infoJ.getRewardQueuePenalty()),
+					"reward_invalid_action": float(infoJ.getRewardInvalidAction()),
+					"invalid_action_taken": bool(infoJ.getInvalidActionTaken()),
+					"assignment_success": bool(infoJ.getAssignmentSuccess()),
+					"replica_changes": int(infoJ.getReplicaChanges())
+				})
+			except Exception:
+				pass
+		# Fallback: query metrics directly if missing
+		missing = [k for k in ("sla_violations","cumulative_cost","replica_count","budget_remaining") if k not in info]
+		if missing:
+			try:
+				info.setdefault("sla_violations", int(self._server.getSlaViolations(bool(self.complex))))
+				info.setdefault("cumulative_cost", float(self._server.getCumulativeCost(bool(self.complex))))
+				info.setdefault("replica_count", int(self._server.getReplicaCount(bool(self.complex))))
+				info.setdefault("budget_remaining", float(self._server.getBudgetRemaining(bool(self.complex))))
+			except Exception:
+				pass
+		# Action mask depuis Java
+		try:
+			mask = self._server.getActionMask(bool(self.complex))
+			info["action_mask"] = [bool(x) for x in list(mask)]
+		except Exception:
+			pass
         
 		return observation, info
     
@@ -158,19 +196,59 @@ class CloudSimEnv(gym.Env):
 			state = np.array(list(sr.getState()), dtype=np.float32)
 			reward = float(sr.getReward())
 			done = bool(sr.isTerminated())
+			infoJ = sr.getInfo()
 		except Exception:
 			result = self._server.step(int(action), self.complex)
 			result_list = list(result)
 			state = np.array(result_list[:-2], dtype=np.float32)
 			reward = float(result_list[-2])
 			done = bool(result_list[-1] > 0.5)
+			infoJ = None
         
 		self.total_steps += 1
         
-		info = {
-			"query": self._server.getCurrentQuery(self.complex),
-			"cumulative_reward": self._server.getCumulativeReward(self.complex)
-		}
+		info = {}
+		if infoJ is not None:
+			try:
+				info.update({
+					"last_latency_ms": float(infoJ.getLastLatencyMs()),
+					"query": int(infoJ.getCurrentQuery()),
+					"cumulative_reward": float(infoJ.getCumulativeReward()),
+					"sla_violations": int(infoJ.getSlaViolations()),
+					"cumulative_cost": float(infoJ.getCumulativeCost()),
+					"replica_count": int(infoJ.getReplicaCount()),
+					"budget_remaining": float(infoJ.getBudgetRemaining()),
+					"reward_wait_time": float(infoJ.getRewardWaitTime()),
+					"reward_unutilization": float(infoJ.getRewardUnutilization()),
+					"reward_queue_penalty": float(infoJ.getRewardQueuePenalty()),
+					"reward_invalid_action": float(infoJ.getRewardInvalidAction()),
+					"invalid_action_taken": bool(infoJ.getInvalidActionTaken()),
+					"assignment_success": bool(infoJ.getAssignmentSuccess()),
+					"replica_changes": int(infoJ.getReplicaChanges())
+				})
+			except Exception:
+				pass
+		# Fallback: query metrics directly if missing
+		missing = [k for k in ("sla_violations","cumulative_cost","replica_count","budget_remaining") if k not in info]
+		if missing:
+			try:
+				info.setdefault("sla_violations", int(self._server.getSlaViolations(bool(self.complex))))
+				info.setdefault("cumulative_cost", float(self._server.getCumulativeCost(bool(self.complex))))
+				info.setdefault("replica_count", int(self._server.getReplicaCount(bool(self.complex))))
+				info.setdefault("budget_remaining", float(self._server.getBudgetRemaining(bool(self.complex))))
+			except Exception:
+				pass
+		# Action mask depuis Java
+		try:
+			mask = self._server.getActionMask(bool(self.complex))
+			info["action_mask"] = [bool(x) for x in list(mask)]
+		except Exception:
+			pass
+		else:
+			info = {
+				"query": self._server.getCurrentQuery(self.complex),
+				"cumulative_reward": self._server.getCumulativeReward(self.complex)
+			}
         
 		if done:
 			self.episode_rewards.append(info["cumulative_reward"])

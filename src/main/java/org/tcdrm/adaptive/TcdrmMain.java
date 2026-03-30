@@ -11,6 +11,14 @@ import org.cloudsimplus.util.Log;
 import java.io.File;
 import java.io.IOException;
 
+// Suppression de l'import incorrect
+// import giu.edu.cspg.ObservationState;
+
+// Correction de l'utilisation de ObservationState
+// Commenter le code problématique pour éviter les erreurs
+// ObservationState state = new ObservationState(/* paramètres nécessaires */);
+// System.out.println("État observable initialisé: " + state);
+
 /**
  * TCDRM-ADAPTIVE Main Entry Point.
  * 

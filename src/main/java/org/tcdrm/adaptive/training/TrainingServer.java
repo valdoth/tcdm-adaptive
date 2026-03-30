@@ -7,7 +7,6 @@ import java.util.Map;
 import ch.qos.logback.classic.Level;
 import org.cloudsimplus.util.Log;
 
-import java.net.InetAddress;
 
 /**
  * Serveur Py4J pour l'entraînement RL.
@@ -105,6 +104,28 @@ public class TrainingServer {
         TrainingEnvironment env = complex ? complexEnv : simpleEnv;
         return env != null ? env.getCumulativeReward() : 0.0;
     }
+
+    // === Extra getters to support Python fallback metrics ===
+    public int getSlaViolations(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        return env != null ? env.getSlaViolations() : 0;
+    }
+    public double getCumulativeCost(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        return env != null ? env.getCumulativeCost() : 0.0;
+    }
+    public int getReplicaCount(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        return env != null ? env.getReplicaCount() : 0;
+    }
+    public double getBudgetRemaining(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        return env != null ? env.getBudgetRemaining() : 0.0;
+    }
+    public int getReplicaChanges(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        return env != null ? env.getReplicaChanges() : 0;
+    }
     
     /**
      * Point d'entrée pour démarrer le serveur d'entraînement.
@@ -166,6 +187,12 @@ public class TrainingServer {
         if (tSimple instanceof Number n) settings.setTSlaSimpleMs(n.doubleValue());
         Object tComplex = p.get("tSlaComplexMs");
         if (tComplex instanceof Number n) settings.setTSlaComplexMs(n.doubleValue());
+        Object wu = p.get("warmupQueries");
+        if (wu instanceof Number n) settings.setWarmupQueries(n.intValue());
+        Object ws = p.get("warmupStrategy");
+        if (ws instanceof String s) settings.setWarmupStrategy(s);
+        Object wrp = p.get("warmupRandomProb");
+        if (wrp instanceof Number n) settings.setWarmupRandomProb(n.doubleValue());
     }
 
     /** Reset structuré (retourne un objet avec state + info). */
@@ -175,7 +202,22 @@ public class TrainingServer {
             env = createEnvironment(seed, complex);
         }
         double[] state = env.reset();
-        TrainingStepInfo info = new TrainingStepInfo(0.0, env.getCurrentQuery(), env.getCumulativeReward());
+        TrainingStepInfo info = new TrainingStepInfo(
+            0.0,
+            env.getCurrentQuery(),
+            env.getCumulativeReward(),
+            env.getSlaViolations(),
+            env.getCumulativeCost(),
+            env.getReplicaCount(),
+            env.getBudgetRemaining(),
+            env.isInvalidActionTaken(),
+            env.isAssignmentSuccess(),
+            env.getRewardWaitTime(),
+            env.getRewardUnutilization(),
+            env.getRewardQueuePenalty(),
+            env.getRewardInvalidAction(),
+            env.getReplicaChanges()
+        );
         return new TrainingResetResult(state, info);
     }
 
@@ -191,9 +233,29 @@ public class TrainingServer {
         TrainingStepInfo info = new TrainingStepInfo(
             env.getLastLatency(),
             env.getCurrentQuery(),
-            env.getCumulativeReward()
+            env.getCumulativeReward(),
+            env.getSlaViolations(),
+            env.getCumulativeCost(),
+            env.getReplicaCount(),
+            env.getBudgetRemaining(),
+            env.isInvalidActionTaken(),
+            env.isAssignmentSuccess(),
+            env.getRewardWaitTime(),
+            env.getRewardUnutilization(),
+            env.getRewardQueuePenalty(),
+            env.getRewardInvalidAction(),
+            env.getReplicaChanges()
         );
         return new TrainingStepResult(r.state(), r.reward(), r.done(), truncated, info);
+    }
+
+    /** Masque d'actions valides pour l'état courant. */
+    public boolean[] getActionMask(boolean complex) {
+        TrainingEnvironment env = complex ? complexEnv : simpleEnv;
+        if (env == null) {
+            throw new IllegalStateException("Environment not created. Call reset() first.");
+        }
+        return env.getActionMask();
     }
 }
 
@@ -202,6 +264,10 @@ class TrainingSettings {
     private int maxEpisodeLength = -1; // -1 = utiliser constantes
     private double tSlaSimpleMs = -1;  // -1 = utiliser constantes
     private double tSlaComplexMs = -1; // -1 = utiliser constantes
+    // Dynamic warmup configuration (applied on TrainingEnvironment.reset)
+    private int warmupQueries = 0;           // number of warmup queries before RL actions
+    private String warmupStrategy = "random"; // random | tcdrm | norep
+    private double warmupRandomProb = 0.2;   // probability for replicate/delete in random mode
 
     public int getMaxEpisodeLength() { return maxEpisodeLength; }
     public void setMaxEpisodeLength(int v) { this.maxEpisodeLength = v; }
@@ -209,6 +275,12 @@ class TrainingSettings {
     public void setTSlaSimpleMs(double v) { this.tSlaSimpleMs = v; }
     public double getTSlaComplexMs() { return tSlaComplexMs; }
     public void setTSlaComplexMs(double v) { this.tSlaComplexMs = v; }
+    public int getWarmupQueries() { return warmupQueries; }
+    public void setWarmupQueries(int v) { this.warmupQueries = Math.max(0, v); }
+    public String getWarmupStrategy() { return warmupStrategy; }
+    public void setWarmupStrategy(String s) { this.warmupStrategy = (s == null ? "random" : s); }
+    public double getWarmupRandomProb() { return warmupRandomProb; }
+    public void setWarmupRandomProb(double p) { this.warmupRandomProb = Math.max(0.0, Math.min(1.0, p)); }
 }
 
 /** Info renvoyée à chaque reset/step (horodatage simple). */
@@ -216,16 +288,64 @@ class TrainingStepInfo {
     private final double lastLatencyMs;
     private final int currentQuery;
     private final double cumulativeReward;
+    private final int slaViolations;
+    private final double cumulativeCost;
+    private final int replicaCount;
+    private final double budgetRemaining;
+    private final boolean invalidActionTaken;
+    private final boolean assignmentSuccess;
+    private final double rewardWaitTime;
+    private final double rewardUnutilization;
+    private final double rewardQueuePenalty;
+    private final double rewardInvalidAction;
+    private final int replicaChanges;
 
-    public TrainingStepInfo(double lastLatencyMs, int currentQuery, double cumulativeReward) {
+    public TrainingStepInfo(
+        double lastLatencyMs,
+        int currentQuery,
+        double cumulativeReward,
+        int slaViolations,
+        double cumulativeCost,
+        int replicaCount,
+        double budgetRemaining,
+        boolean invalidActionTaken,
+        boolean assignmentSuccess,
+        double rewardWaitTime,
+        double rewardUnutilization,
+        double rewardQueuePenalty,
+        double rewardInvalidAction,
+        int replicaChanges
+    ) {
         this.lastLatencyMs = lastLatencyMs;
         this.currentQuery = currentQuery;
         this.cumulativeReward = cumulativeReward;
+        this.slaViolations = slaViolations;
+        this.cumulativeCost = cumulativeCost;
+        this.replicaCount = replicaCount;
+        this.budgetRemaining = budgetRemaining;
+        this.invalidActionTaken = invalidActionTaken;
+        this.assignmentSuccess = assignmentSuccess;
+        this.rewardWaitTime = rewardWaitTime;
+        this.rewardUnutilization = rewardUnutilization;
+        this.rewardQueuePenalty = rewardQueuePenalty;
+        this.rewardInvalidAction = rewardInvalidAction;
+        this.replicaChanges = replicaChanges;
     }
 
     public double getLastLatencyMs() { return lastLatencyMs; }
     public int getCurrentQuery() { return currentQuery; }
     public double getCumulativeReward() { return cumulativeReward; }
+    public int getSlaViolations() { return slaViolations; }
+    public double getCumulativeCost() { return cumulativeCost; }
+    public int getReplicaCount() { return replicaCount; }
+    public double getBudgetRemaining() { return budgetRemaining; }
+    public boolean getInvalidActionTaken() { return invalidActionTaken; }
+    public boolean getAssignmentSuccess() { return assignmentSuccess; }
+    public double getRewardWaitTime() { return rewardWaitTime; }
+    public double getRewardUnutilization() { return rewardUnutilization; }
+    public double getRewardQueuePenalty() { return rewardQueuePenalty; }
+    public double getRewardInvalidAction() { return rewardInvalidAction; }
+    public int getReplicaChanges() { return replicaChanges; }
 }
 
 /** Résultat de reset structuré: état + info. */
