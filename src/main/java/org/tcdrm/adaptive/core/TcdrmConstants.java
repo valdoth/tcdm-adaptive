@@ -126,7 +126,7 @@ public final class TcdrmConstants {
     // où α = 1 - e^(-1/half_life) pour une demi-vie de half_life requêtes
     
     /** Half-life en nombre de requêtes (après N requêtes, la popularité décroît de 50%) */
-    public static final int POPULARITY_HALF_LIFE = 30;
+    public static final int POPULARITY_HALF_LIFE = 20; // plus réactif
     /** Facteur de lissage EMA calculé à partir de half-life: α = 1 - e^(-ln(2)/half_life) */
     public static final double EMA_ALPHA = 1.0 - Math.exp(-Math.log(2) / POPULARITY_HALF_LIFE);
     /** Score d'accès de base par requête (avant normalisation) */
@@ -138,7 +138,7 @@ public final class TcdrmConstants {
     /** Seuil de popularité EMA pour déclencher la première réplication (0.0-1.0) */
     public static final double EMA_REPLICATION_THRESHOLD = 0.4;
     /** Seuil de popularité sous lequel une suppression devient envisageable (hystérésis) */
-    public static final double EMA_DELETE_THRESHOLD = 0.25; // plus bas que le seuil de création
+    public static final double EMA_DELETE_THRESHOLD = 0.30; // suppression un peu plus réactive
     /** Facteur de décroissance par requête sans accès (simule le refroidissement) */
     public static final double DECAY_PER_QUERY = 0.998;
 
@@ -158,7 +158,9 @@ public final class TcdrmConstants {
     // une durée de vie minimale avant suppression.
     // ==================================================================
     /** Nombre minimal de requêtes avant qu'un réplica puisse être supprimé */
-    public static final int MIN_REPLICA_LIFETIME_QUERIES = 50;
+    public static final int MIN_REPLICA_LIFETIME_QUERIES = 30; // ajuste plus tôt sans oscillations
+    /** Cooldown de re-création après une suppression pour éviter re-création immédiate */
+    public static final int REPLICA_RECREATE_COOLDOWN_QUERIES = 80;
 
     // ==================================================================
     // Query Execution Model

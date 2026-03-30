@@ -134,7 +134,7 @@ def train_qlearning(env: CloudSimQLearningEnv, episodes: int, save_path: str):
 		tb_writer = None
     
 	for episode in range(episodes):
-		state, info = env.reset(seed=args.seed_base + episode)
+		state, info = env.reset(seed=42 + episode)
 		agent.start_episode()
 		episode_reward = 0
 		done = False
@@ -280,7 +280,7 @@ def train_dqn(env: CloudSimEnv, episodes: int, save_path: str):
 		tb_writer = None
     
 	for episode in range(episodes):
-		state, info = env.reset(seed=args.seed_base + episode)
+		state, info = env.reset(seed=42 + episode)
 		episode_reward = 0
 		done = False
 		last_info = info
@@ -407,6 +407,14 @@ def main():
 					   help='Warmup strategy: random|tcdrm|norep')
 	parser.add_argument('--warmup-random-prob', type=float, default=0.2,
 					   help='Random warmup probability for replicate/delete actions (0..1)')
+	# Popularity strategy (server-side Java)
+	parser.add_argument('--popularity-strategy', type=str, default='EMA',
+				   choices=['EMA','TINYLFU','EMA_TINYLFU'], help='Popularity estimation strategy in Java')
+	parser.add_argument('--tinylfu-width', type=int, default=2048, help='TinyLFU Count-Min Sketch width')
+	parser.add_argument('--tinylfu-depth', type=int, default=4, help='TinyLFU Count-Min Sketch depth')
+	parser.add_argument('--tinylfu-aging', type=int, default=200, help='TinyLFU aging period (ops)')
+	parser.add_argument('--tinylfu-tau-hi', type=float, default=0.6, help='TinyLFU replicate threshold (0..1)')
+	parser.add_argument('--tinylfu-tau-lo', type=float, default=0.3, help='TinyLFU delete threshold (0..1)')
 	parser.add_argument('--seed-base', type=int, default=42,
 					   help='Base seed; episode seed = seed_base + episode (decorrelate agents)')
     
@@ -432,6 +440,13 @@ def main():
 		cfg['warmupQueries'] = int(max(0, args.warmup_queries))
 		cfg['warmupStrategy'] = str(args.warmup_strategy)
 		cfg['warmupRandomProb'] = float(max(0.0, min(1.0, args.warmup_random_prob)))
+		# Popularity strategy (TinyLFU/EMA)
+		cfg['popularityStrategy'] = str(args.popularity_strategy)
+		cfg['tinyLfuWidth'] = int(max(256, args.tinylfu_width))
+		cfg['tinyLfuDepth'] = int(max(2, args.tinylfu_depth))
+		cfg['tinyLfuAgingPeriod'] = int(max(32, args.tinylfu_aging))
+		cfg['tinyLfuTauHi'] = float(max(0.0, min(1.0, args.tinylfu_tau_hi)))
+		cfg['tinyLfuTauLo'] = float(max(0.0, min(1.0, args.tinylfu_tau_lo)))
 		if args.agent == 'qlearning':
 			env = CloudSimQLearningEnv(port=args.port, complex=args.complex, config=cfg)
 			train_qlearning(env, args.episodes, args.output)

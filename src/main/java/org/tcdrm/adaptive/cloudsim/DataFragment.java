@@ -24,6 +24,8 @@ public class DataFragment {
     private String replicaProvider;
     private String replicaRegion;
     private int queriesSinceReplication;
+    // Cooldown before re-creating a replica after deletion
+    private int recreateCooldown;
     
     public DataFragment(int id, String name, String primaryProvider, String primaryRegion) {
         this(id, name, TcdrmConstants.AVG_RELATION_SIZE_GB, primaryProvider, primaryRegion);
@@ -67,6 +69,9 @@ public class DataFragment {
         if (hasReplica()) {
             queriesSinceReplication++;
         }
+        if (recreateCooldown > 0) {
+            recreateCooldown--;
+        }
     }
 
     /**
@@ -84,6 +89,14 @@ public class DataFragment {
         return replicaProvider != null && replicaRegion != null;
     }
 
+    public void startRecreateCooldown(int queries) {
+        this.recreateCooldown = Math.max(this.recreateCooldown, Math.max(0, queries));
+    }
+
+    public boolean hasRecreateCooldown() {
+        return recreateCooldown > 0;
+    }
+
     // === Getters ===
     
     public int getId() { return id; }
@@ -94,6 +107,7 @@ public class DataFragment {
     public String getReplicaProvider() { return replicaProvider; }
     public String getReplicaRegion() { return replicaRegion; }
     public int getQueriesSinceReplication() { return queriesSinceReplication; }
+    public int getRecreateCooldown() { return recreateCooldown; }
 
     @Override
     public String toString() {

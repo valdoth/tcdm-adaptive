@@ -241,7 +241,7 @@ public class TcdrmSimulation {
             double bestScore = -1.0;
             for (int i = 0; i < fragments.size(); i++) {
                 DataFragment f = fragments.get(i);
-                if (!f.hasReplica()) {
+                if (!f.hasReplica() && !f.hasRecreateCooldown()) {
                     double sc = tinyLfu.estimate(f.getId());
                     if (sc > bestScore) { bestScore = sc; bestIdx = i; }
                 }
@@ -254,7 +254,7 @@ public class TcdrmSimulation {
             return 0.0;
         }
         for (DataFragment fragment : fragments) {
-            if (!fragment.hasReplica()) {
+            if (!fragment.hasReplica() && !fragment.hasRecreateCooldown()) {
                 double cost = fragment.createReplica(execProvider, execRegion);
                 currentReplicaCount++;
                 return cost;
@@ -279,7 +279,9 @@ public class TcdrmSimulation {
     /** Supprime un réplica pour le fragment donné par son index. */
     private void deleteReplicaAtIndex(int index) {
         if (index >= 0 && index < fragments.size() && fragments.get(index).hasReplica()) {
-            fragments.get(index).deleteReplica();
+            DataFragment f = fragments.get(index);
+            f.deleteReplica();
+            f.startRecreateCooldown(TcdrmConstants.REPLICA_RECREATE_COOLDOWN_QUERIES);
             currentReplicaCount--;
         }
     }
@@ -303,7 +305,9 @@ public class TcdrmSimulation {
         if (!isTinyEnabled()) return;
         int nRel = complex ? TcdrmConstants.RELATIONS_COMPLEX : TcdrmConstants.RELATIONS_SIMPLE;
         for (int i = 0; i < nRel && i < fragments.size(); i++) {
-            tinyLfu.increment(fragments.get(i).getId());
+            DataFragment f = fragments.get(i);
+            tinyLfu.increment(f.getId());
+            f.incrementQueryCount(); // also ticks cooldown
         }
     }
 
