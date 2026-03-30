@@ -17,7 +17,7 @@ public class QueryCloudlet {
 
     private final int queryId;
     private final boolean complex;
-    private final List<DataFragment> fragments;
+    private final List<DataFragment> fragments; // active fragments for THIS query
 
     private Cloudlet cloudlet;
 

@@ -26,7 +26,7 @@ public class TcdrmSimulation {
     
     // Provider/région d'exécution des requêtes
     private final String execProvider;
-    private final String execRegion;
+    private String execRegion;
     
     // État de la simulation
     private int currentReplicaCount;
@@ -51,7 +51,8 @@ public class TcdrmSimulation {
         this.rnd = new Random(seed);
         this.complex = complex;
         this.execProvider = "Google";
-        this.execRegion = "US";
+        // Align with legacy examples: EU-origin workload by default
+        this.execRegion = "EU";
         this.currentReplicaCount = 0;
         this.currentBudget = TcdrmConstants.INITIAL_BUDGET;
         this.queryCount = 0;
@@ -59,6 +60,7 @@ public class TcdrmSimulation {
         
         // Créer les fragments distribués sur les providers
         this.fragments = createDistributedFragments();
+        this.workloadSets = buildLegacyWorkloadSets(seed);
     }
 
     /**
@@ -79,6 +81,25 @@ public class TcdrmSimulation {
         }
         
         return frags;
+    }
+
+    // Legacy-like workload: predefined fragment subsets per query
+    private List<int[]> workloadSets;
+    private List<int[]> buildLegacyWorkloadSets(long seed) {
+        int n = TcdrmConstants.MAX_QUERIES;
+        if (complex) {
+            return org.tcdrm.adaptive.data.LegacyWorkloadTemplates.generateComplex(fragments, n, seed);
+        } else {
+            return org.tcdrm.adaptive.data.LegacyWorkloadTemplates.generateSimple(fragments, n, seed);
+        }
+    }
+
+    private List<DataFragment> selectFragmentsForQuery(int qIdx) {
+        if (workloadSets != null && qIdx < workloadSets.size()) {
+            int[] idx = workloadSets.get(qIdx);
+            return org.tcdrm.adaptive.data.LegacyWorkloadTemplates.select(fragments, idx);
+        }
+        return fragments; // fallback: all relations
     }
 
     /**
@@ -106,7 +127,8 @@ public class TcdrmSimulation {
         // Mettre à jour la popularité EMA
         updateEmaPopularity(isRead);
         
-        QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
+        List<DataFragment> active = selectFragmentsForQuery(queryCount);
+        QueryCloudlet query = new QueryCloudlet(queryCount, complex, active);
         query.execute(infrastructure, execProvider, execRegion, rnd);
         incrementPopularityForQuery();
         
@@ -148,7 +170,8 @@ public class TcdrmSimulation {
         fragments.stream().filter(DataFragment::hasReplica).forEach(DataFragment::incrementQueryCount);
         
         // Exécuter la requête
-        QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
+        List<DataFragment> active = selectFragmentsForQuery(queryCount);
+        QueryCloudlet query = new QueryCloudlet(queryCount, complex, active);
         query.execute(infrastructure, execProvider, execRegion, rnd);
         incrementPopularityForQuery();
         
@@ -208,7 +231,8 @@ public class TcdrmSimulation {
         fragments.stream().filter(DataFragment::hasReplica).forEach(DataFragment::incrementQueryCount);
         
         // Exécuter la requête
-        QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
+        List<DataFragment> active = selectFragmentsForQuery(queryCount);
+        QueryCloudlet query = new QueryCloudlet(queryCount, complex, active);
         query.execute(infrastructure, execProvider, execRegion, rnd);
         incrementPopularityForQuery();
         
