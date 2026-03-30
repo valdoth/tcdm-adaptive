@@ -21,6 +21,9 @@ public class BenchmarkData {
     private final List<Double> cumulativeBwInterRegionGb = new ArrayList<>();
     private final List<Integer> slaViolations = new ArrayList<>();
     private final List<Double> avgBwPrice = new ArrayList<>();
+    private final List<Double> cpuCostPerQuery = new ArrayList<>();
+    private final List<Double> replicaCostPerQuery = new ArrayList<>();
+    private final List<Double> totalCostPerQuery = new ArrayList<>();
     
     private double totalBwCost = 0;
     private double totalCpuCost = 0;
@@ -62,6 +65,11 @@ public class BenchmarkData {
         totalBwCost += cost;
         totalCpuCost += cpuCost;
         totalReplicaCost += replicaCost;
+
+        // Per-query breakdowns for export
+        cpuCostPerQuery.add(cpuCost);
+        replicaCostPerQuery.add(replicaCost);
+        totalCostPerQuery.add(cost + cpuCost + replicaCost);
     }
 
     // === Getters ===
@@ -93,6 +101,9 @@ public class BenchmarkData {
     public List<Integer> getSlaViolations() { return slaViolations; }
     public List<Double> getAvgBwPrice() { return avgBwPrice; }
     public int getTotalSlaViolations() { return totalSlaViolations; }
+    public List<Double> getCpuCostPerQuery() { return cpuCostPerQuery; }
+    public List<Double> getReplicaCostPerQuery() { return replicaCostPerQuery; }
+    public List<Double> getTotalCostPerQuery() { return totalCostPerQuery; }
 
     public void printSummary() {
         int last = queryNumbers.size() - 1;

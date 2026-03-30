@@ -136,14 +136,7 @@ public class ChartGenerator {
         chart.addSeries("Q-Learning", x, yQl).setLineColor(COLOR_QLEARNING);
         chart.addSeries("DQN", x, yDqn).setLineColor(COLOR_DQN);
 
-        // Add vertical P_SLA line at popularity threshold
-        int pSla = (int) TcdrmConstants.POPULARITY_THRESHOLD;
-        double yMax = Math.max(
-            Math.max(yTcdrm.stream().mapToDouble(Double::doubleValue).max().orElse(0), yNorep.stream().mapToDouble(Double::doubleValue).max().orElse(0)),
-            Math.max(yQl.stream().mapToDouble(Double::doubleValue).max().orElse(0), yDqn.stream().mapToDouble(Double::doubleValue).max().orElse(0))
-        );
-        chart.addSeries("P_SLA", Arrays.asList(pSla, pSla), Arrays.asList(0.0, yMax * 1.05))
-            .setLineColor(Color.GRAY);
+        // Removed vertical P_SLA reference from charts per request
 
         // Mark first replica creation point for Q-Learning and DQN
         int qlStartIdx = firstReplicaIndex(ql.getReplicaCount());
@@ -766,7 +759,7 @@ public class ChartGenerator {
             normPop.add((double)(i + 1) / pSla);
         }
         XYChart popChart = new XYChartBuilder().width(750).height(380)
-            .title("Normalized Popularity").xAxisTitle("Query").yAxisTitle("Popularity / P_SLA").build();
+            .title("Normalized Popularity").xAxisTitle("Query").yAxisTitle("Normalized Popularity").build();
         popChart.getStyler().setMarkerSize(0);
         popChart.addSeries("Popularity", x, normPop).setLineColor(COLOR_TCDRM);
         popChart.addSeries("Threshold", Arrays.asList(0, x.size()-1), Arrays.asList(1.0, 1.0)).setLineColor(Color.RED);

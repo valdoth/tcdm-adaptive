@@ -56,6 +56,24 @@ public class TcdrmMain {
         norepComplex.printSummary();
         tcdrmComplex.printSummary();
         
+        // Export CSV metrics per model (inspired by legacy Simulation)
+        new File("metrics").mkdirs();
+        BenchmarkExporter.exportPerQueryCsv(norepSimple, "metrics/norep_simple.csv");
+        BenchmarkExporter.exportPerQueryCsv(tcdrmSimple, "metrics/tcdrm_simple.csv");
+        BenchmarkExporter.exportPerQueryCsv(norepComplex, "metrics/norep_complex.csv");
+        BenchmarkExporter.exportPerQueryCsv(tcdrmComplex, "metrics/tcdrm_complex.csv");
+        // Overtime averages (window=100 for readability)
+        BenchmarkExporter.exportOvertimeAverages(norepSimple, "metrics/log_overtime.csv", 100);
+        BenchmarkExporter.exportOvertimeAverages(tcdrmSimple, "metrics/log_overtime.csv", 100);
+        BenchmarkExporter.exportOvertimeAverages(norepComplex, "metrics/log_overtime.csv", 100);
+        BenchmarkExporter.exportOvertimeAverages(tcdrmComplex, "metrics/log_overtime.csv", 100);
+
+        // Global summary for Phase 1
+        java.util.List<BenchmarkData> phase1Models = java.util.Arrays.asList(
+            norepSimple, tcdrmSimple, norepComplex, tcdrmComplex
+        );
+        BenchmarkExporter.exportSummaryCsv(phase1Models, "metrics/summary_phase1.csv");
+
         // Générer les graphiques du paper (Figs 2-7)
         System.out.println("\n  Generating paper figures...");
         ChartGenerator.generateReplicaFactor(tcdrmSimple, tcdrmComplex, "images/fig2_replica_factor.png");
@@ -119,6 +137,22 @@ public class TcdrmMain {
             dqnSimple.printSummary();
             qlComplex.printSummary();
             dqnComplex.printSummary();
+
+            // Export RL CSV metrics
+            BenchmarkExporter.exportPerQueryCsv(qlSimple, "metrics/rl_qlearning_simple.csv");
+            BenchmarkExporter.exportPerQueryCsv(dqnSimple, "metrics/rl_dqn_simple.csv");
+            BenchmarkExporter.exportPerQueryCsv(qlComplex, "metrics/rl_qlearning_complex.csv");
+            BenchmarkExporter.exportPerQueryCsv(dqnComplex, "metrics/rl_dqn_complex.csv");
+            BenchmarkExporter.exportOvertimeAverages(qlSimple, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(dqnSimple, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(qlComplex, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(dqnComplex, "metrics/log_overtime.csv", 100);
+
+            // Global summary for Phase 2 (RL)
+            java.util.List<BenchmarkData> phase2Models = java.util.Arrays.asList(
+                qlSimple, dqnSimple, qlComplex, dqnComplex
+            );
+            BenchmarkExporter.exportSummaryCsv(phase2Models, "metrics/summary_phase2_rl.csv");
             
             // Générer les graphiques avec 4 modèles (format PDF: Simple + Complex côte à côte)
             System.out.println("\n  Generating 4-model comparison figures (PDF format)...");
@@ -185,7 +219,7 @@ public class TcdrmMain {
         System.out.println("  Complex: " + TcdrmConstants.RELATIONS_COMPLEX + " relations x " 
             + (int)(TcdrmConstants.AVG_RELATION_SIZE_GB * 1000) + " MB");
         System.out.println("  Queries: " + TcdrmConstants.MAX_QUERIES 
-            + ", P_SLA: " + TcdrmConstants.POPULARITY_THRESHOLD);
+            + ", Popularity threshold: " + TcdrmConstants.POPULARITY_THRESHOLD);
         System.out.println("  Options: headlessCharts=" + opts.headlessCharts
             + ", phase1Only=" + opts.phase1Only
             + ", pyTimeout=" + opts.pythonConnectTimeoutSec + "s"

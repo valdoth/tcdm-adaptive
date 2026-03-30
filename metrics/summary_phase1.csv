@@ -1,0 +1,5 @@
+name,queries,final_cumul_bw_cost,total_bw_cost,total_cpu_cost,total_replica_cost,total_cost,total_bw_inter_provider_gb,total_bw_inter_region_gb,total_sla_violations,final_replica_count
+NoRepLc_Simple,1000,9,9,9,9,1,801738,0,11,701738,900,450,1000,0
+TCDRM_Simple,1000,4,1643,4,1643,1,801738,0,5,966038,181,35,1168,65,202,3
+NoRepLc_Complex,1000,19,8,19,8,9,005313,0,28,805313,1800,900,1000,0
+TCDRM_Complex,1000,8,3502,8,3502,9,005313,0,17,355513,365,4,2334,6,209,6
