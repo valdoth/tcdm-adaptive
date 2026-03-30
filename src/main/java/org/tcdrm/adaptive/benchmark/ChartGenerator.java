@@ -126,12 +126,38 @@ public class ChartGenerator {
         chart.getStyler().setPlotGridLinesVisible(true);
         
         List<Integer> x = norep.getQueryNumbers();
-        chart.addSeries("TCDRM", x, smooth(tcdrm.getResponseTimeMs(), 20)).setLineColor(COLOR_TCDRM);
-        chart.addSeries("NoRepLc", x, smooth(norep.getResponseTimeMs(), 20)).setLineColor(COLOR_NOREP);
-        chart.addSeries("Q-Learning", x, smooth(ql.getResponseTimeMs(), 20)).setLineColor(COLOR_QLEARNING);
-        chart.addSeries("DQN", x, smooth(dqn.getResponseTimeMs(), 20)).setLineColor(COLOR_DQN);
+        List<Double> yTcdrm = smooth(tcdrm.getResponseTimeMs(), 20);
+        List<Double> yNorep = smooth(norep.getResponseTimeMs(), 20);
+        List<Double> yQl = smooth(ql.getResponseTimeMs(), 20);
+        List<Double> yDqn = smooth(dqn.getResponseTimeMs(), 20);
+
+        chart.addSeries("TCDRM", x, yTcdrm).setLineColor(COLOR_TCDRM);
+        chart.addSeries("NoRepLc", x, yNorep).setLineColor(COLOR_NOREP);
+        chart.addSeries("Q-Learning", x, yQl).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, yDqn).setLineColor(COLOR_DQN);
+
+        // Add vertical P_SLA line at popularity threshold
+        int pSla = (int) TcdrmConstants.POPULARITY_THRESHOLD;
+        double yMax = Math.max(
+            Math.max(yTcdrm.stream().mapToDouble(Double::doubleValue).max().orElse(0), yNorep.stream().mapToDouble(Double::doubleValue).max().orElse(0)),
+            Math.max(yQl.stream().mapToDouble(Double::doubleValue).max().orElse(0), yDqn.stream().mapToDouble(Double::doubleValue).max().orElse(0))
+        );
+        chart.addSeries("P_SLA", Arrays.asList(pSla, pSla), Arrays.asList(0.0, yMax * 1.05))
+            .setLineColor(Color.GRAY);
+
+        // Mark first replica creation point for Q-Learning and DQN
+        int qlStartIdx = firstReplicaIndex(ql.getReplicaCount());
+        // Optional: could add micro-line to denote start; omitted due to API differences
+        int dqnStartIdx = firstReplicaIndex(dqn.getReplicaCount());
+        // Optional: could add micro-line to denote start; omitted due to API differences
 
         return chart;
+    }
+    private static int firstReplicaIndex(List<Integer> replicas) {
+        for (int i = 0; i < replicas.size(); i++) {
+            if (replicas.get(i) != null && replicas.get(i) > 0) return i;
+        }
+        return -1;
     }
 
     /**

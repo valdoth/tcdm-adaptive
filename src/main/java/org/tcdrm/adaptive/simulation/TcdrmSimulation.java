@@ -37,6 +37,14 @@ public class TcdrmSimulation {
     
     // EMA (Exponential Moving Average) pour popularité - feature d'état pour RL
     private double emaPopularity;
+    // Popularity strategy (TinyLFU)
+    private String popularityStrategy = "EMA"; // EMA | TINYLFU | EMA_TINYLFU
+    private TinyLFU tinyLfu;
+    private double tinyTauHi = 0.6;
+    private double tinyTauLo = 0.3;
+    private int tinyWidth = 2048;
+    private int tinyDepth = 4;
+    private int tinyAging = 200;
 
     public TcdrmSimulation(long seed, boolean complex) {
         this.infrastructure = new MultiCloudInfrastructure();
@@ -100,6 +108,7 @@ public class TcdrmSimulation {
         
         QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
         query.execute(infrastructure, execProvider, execRegion, rnd);
+        incrementPopularityForQuery();
         
         QueryResult result = new QueryResult(
             queryCount,
@@ -141,6 +150,7 @@ public class TcdrmSimulation {
         // Exécuter la requête
         QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
         query.execute(infrastructure, execProvider, execRegion, rnd);
+        incrementPopularityForQuery();
         
         // Coût de maintenance des réplicas
         double maintenanceCost = currentReplicaCount * TcdrmConstants.REPLICA_MAINTENANCE_COST_PER_QUERY;
@@ -178,12 +188,20 @@ public class TcdrmSimulation {
         // Mettre à jour la popularité EMA
         updateEmaPopularity(isRead);
         
-        // Appliquer l'action RL
+        // Appliquer l'action RL avec hystérésis anti-oscillation
         if (action == 1 && currentReplicaCount < maxReplicas) {
             creationCost = createNextReplica();
             currentBudget -= creationCost;
         } else if (action == 2 && currentReplicaCount > 0) {
-            deleteLastReplica();
+            // Ne pas supprimer si la popularité reste au-dessus d'un seuil
+            if (emaPopularity < TcdrmConstants.EMA_DELETE_THRESHOLD) {
+                // Supprimer uniquement si la durée de vie minimale est atteinte
+                int idx = findDeletableReplicaIndex();
+                if (idx >= 0) {
+                    deleteReplicaAtIndex(idx);
+                }
+                // sinon: NOOP (évite les oscillations)
+            }
         }
         
         // Incrémenter le compteur de warm-up
@@ -192,6 +210,7 @@ public class TcdrmSimulation {
         // Exécuter la requête
         QueryCloudlet query = new QueryCloudlet(queryCount, complex, fragments);
         query.execute(infrastructure, execProvider, execRegion, rnd);
+        incrementPopularityForQuery();
         
         double maintenanceCost = currentReplicaCount * TcdrmConstants.REPLICA_MAINTENANCE_COST_PER_QUERY;
         
@@ -217,6 +236,23 @@ public class TcdrmSimulation {
      * Crée un réplica pour le prochain fragment non répliqué.
      */
     private double createNextReplica() {
+        if (isTinyEnabled()) {
+            int bestIdx = -1;
+            double bestScore = -1.0;
+            for (int i = 0; i < fragments.size(); i++) {
+                DataFragment f = fragments.get(i);
+                if (!f.hasReplica()) {
+                    double sc = tinyLfu.estimate(f.getId());
+                    if (sc > bestScore) { bestScore = sc; bestIdx = i; }
+                }
+            }
+            if (bestIdx >= 0 && bestScore >= tinyTauHi) {
+                double cost = fragments.get(bestIdx).createReplica(execProvider, execRegion);
+                currentReplicaCount++;
+                return cost;
+            }
+            return 0.0;
+        }
         for (DataFragment fragment : fragments) {
             if (!fragment.hasReplica()) {
                 double cost = fragment.createReplica(execProvider, execRegion);
@@ -237,6 +273,53 @@ public class TcdrmSimulation {
                 currentReplicaCount--;
                 return;
             }
+        }
+    }
+
+    /** Supprime un réplica pour le fragment donné par son index. */
+    private void deleteReplicaAtIndex(int index) {
+        if (index >= 0 && index < fragments.size() && fragments.get(index).hasReplica()) {
+            fragments.get(index).deleteReplica();
+            currentReplicaCount--;
+        }
+    }
+
+    /**
+     * Trouve un réplica supprimable: requiert une durée de vie minimale
+     * (MIN_REPLICA_LIFETIME_QUERIES). Retourne l'index ou -1 si aucun.
+     */
+    private int findDeletableReplicaIndex() {
+        for (int i = fragments.size() - 1; i >= 0; i--) {
+            DataFragment f = fragments.get(i);
+            if (f.hasReplica() && f.getQueriesSinceReplication() >= TcdrmConstants.MIN_REPLICA_LIFETIME_QUERIES) {
+                if (!isTinyEnabled()) return i;
+                if (tinyLfu.estimate(f.getId()) < tinyTauLo) return i;
+            }
+        }
+        return -1;
+    }
+
+    private void incrementPopularityForQuery() {
+        if (!isTinyEnabled()) return;
+        int nRel = complex ? TcdrmConstants.RELATIONS_COMPLEX : TcdrmConstants.RELATIONS_SIMPLE;
+        for (int i = 0; i < nRel && i < fragments.size(); i++) {
+            tinyLfu.increment(fragments.get(i).getId());
+        }
+    }
+
+    private boolean isTinyEnabled() {
+        return tinyLfu != null && ("TINYLFU".equalsIgnoreCase(popularityStrategy) || "EMA_TINYLFU".equalsIgnoreCase(popularityStrategy));
+    }
+
+    public void configurePopularity(String strategy, Integer width, Integer depth, Integer agingPeriod, Double tauHi, Double tauLo) {
+        if (strategy != null) this.popularityStrategy = strategy;
+        if (width != null) this.tinyWidth = Math.max(256, width);
+        if (depth != null) this.tinyDepth = Math.max(2, depth);
+        if (agingPeriod != null) this.tinyAging = Math.max(32, agingPeriod);
+        if (tauHi != null) this.tinyTauHi = Math.max(0.0, Math.min(1.0, tauHi));
+        if (tauLo != null) this.tinyTauLo = Math.max(0.0, Math.min(1.0, tauLo));
+        if ("TINYLFU".equalsIgnoreCase(popularityStrategy) || "EMA_TINYLFU".equalsIgnoreCase(popularityStrategy)) {
+            if (this.tinyLfu == null) this.tinyLfu = new TinyLFU(tinyWidth, tinyDepth, tinyAging);
         }
     }
 

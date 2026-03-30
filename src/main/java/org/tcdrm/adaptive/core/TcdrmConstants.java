@@ -137,6 +137,8 @@ public final class TcdrmConstants {
     public static final double WRITE_PENALTY_FACTOR = 0.3;
     /** Seuil de popularité EMA pour déclencher la première réplication (0.0-1.0) */
     public static final double EMA_REPLICATION_THRESHOLD = 0.4;
+    /** Seuil de popularité sous lequel une suppression devient envisageable (hystérésis) */
+    public static final double EMA_DELETE_THRESHOLD = 0.25; // plus bas que le seuil de création
     /** Facteur de décroissance par requête sans accès (simule le refroidissement) */
     public static final double DECAY_PER_QUERY = 0.998;
 
@@ -149,6 +151,14 @@ public final class TcdrmConstants {
     public static final int WARMUP_QUERIES = 10;
     /** Sigmoid steepness for warmup */
     public static final double WARMUP_SIGMOID_K = 8.0;
+
+    // ==================================================================
+    // Replica Lifetime / Anti-oscillation
+    // Empêche les allers-retours réplication/suppression en imposant
+    // une durée de vie minimale avant suppression.
+    // ==================================================================
+    /** Nombre minimal de requêtes avant qu'un réplica puisse être supprimé */
+    public static final int MIN_REPLICA_LIFETIME_QUERIES = 50;
 
     // ==================================================================
     // Query Execution Model

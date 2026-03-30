@@ -193,6 +193,18 @@ public class TrainingServer {
         if (ws instanceof String s) settings.setWarmupStrategy(s);
         Object wrp = p.get("warmupRandomProb");
         if (wrp instanceof Number n) settings.setWarmupRandomProb(n.doubleValue());
+        Object ps = p.get("popularityStrategy");
+        if (ps instanceof String s) try { settings.getClass().getMethod("setPopularityStrategy", String.class).invoke(settings, s); } catch (Exception ignore) {}
+        Object w = p.get("tinyLfuWidth");
+        if (w instanceof Number n) try { settings.getClass().getMethod("setTinyLfuWidth", int.class).invoke(settings, n.intValue()); } catch (Exception ignore) {}
+        Object d = p.get("tinyLfuDepth");
+        if (d instanceof Number n) try { settings.getClass().getMethod("setTinyLfuDepth", int.class).invoke(settings, n.intValue()); } catch (Exception ignore) {}
+        Object ap = p.get("tinyLfuAgingPeriod");
+        if (ap instanceof Number n) try { settings.getClass().getMethod("setTinyLfuAgingPeriod", int.class).invoke(settings, n.intValue()); } catch (Exception ignore) {}
+        Object th = p.get("tinyLfuTauHi");
+        if (th instanceof Number n) try { settings.getClass().getMethod("setTinyLfuTauHi", double.class).invoke(settings, n.doubleValue()); } catch (Exception ignore) {}
+        Object tl = p.get("tinyLfuTauLo");
+        if (tl instanceof Number n) try { settings.getClass().getMethod("setTinyLfuTauLo", double.class).invoke(settings, n.doubleValue()); } catch (Exception ignore) {}
     }
 
     /** Reset structuré (retourne un objet avec state + info). */

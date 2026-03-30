@@ -56,6 +56,16 @@ public class TrainingEnvironment {
      */
     public double[] reset() {
         this.simulation = new TcdrmSimulation(seed, complex);
+        // Try to configure popularity strategy from settings via reflection-safe getters
+        try {
+            String strat = (String) TrainingSettings.class.getMethod("getPopularityStrategy").invoke(settings);
+            Integer w = (Integer) TrainingSettings.class.getMethod("getTinyLfuWidth").invoke(settings);
+            Integer d = (Integer) TrainingSettings.class.getMethod("getTinyLfuDepth").invoke(settings);
+            Integer ap = (Integer) TrainingSettings.class.getMethod("getTinyLfuAgingPeriod").invoke(settings);
+            Double th = (Double) TrainingSettings.class.getMethod("getTinyLfuTauHi").invoke(settings);
+            Double tl = (Double) TrainingSettings.class.getMethod("getTinyLfuTauLo").invoke(settings);
+            simulation.configurePopularity(strat, w, d, ap, th, tl);
+        } catch (Exception ignore) {}
         this.currentQuery = 0;
         this.lastLatency = 0.0;
         this.lastCost = 0.0;

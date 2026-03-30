@@ -20,6 +20,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Replica Factor](fig2_replica_factor.png)
 
 **Interprétation :**
+
 - Ce graphique montre l'évolution du nombre de réplicas en fonction du nombre de requêtes.
 - **Seuil P_SLA = 200** : La réplication commence exactement à la requête 200, conformément au seuil de popularité défini dans le papier.
 - **Requêtes simples** (rouge) : Atteignent un maximum de **6 réplicas** (3 relations × 2 réplicas par relation).
@@ -33,6 +34,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Response Time](fig3_response_time.png)
 
 **Interprétation :**
+
 - **Avant P_SLA (q < 200)** : TCDRM et NoRepLc ont des temps de réponse similaires (~200 ms pour simple, ~450 ms pour complexe).
 - **Après P_SLA (q ≥ 200)** : TCDRM montre une **chute drastique** du temps de réponse.
   - Requêtes simples : **200 ms → 85 ms** (réduction de **57%**)
@@ -47,6 +49,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![BW Consumption](fig4_bw_consumption.png)
 
 **Interprétation :**
+
 - Ce graphique compare la consommation de bande passante entre NoRepLc et TCDRM.
 - **NoRepLc** : Utilise principalement des transferts **inter-provider** (bleu) car les données sont distribuées sur différents fournisseurs cloud.
 - **TCDRM** : Réduit drastiquement les transferts inter-provider grâce à la réplication locale.
@@ -61,6 +64,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Avg BW Price](fig5_avg_bw_price.png)
 
 **Interprétation :**
+
 - Ce graphique montre l'évolution du prix moyen par requête au fil du temps.
 - **NoRepLc** (rouge) : Prix constant car aucune optimisation n'est effectuée (~0.0135$/requête pour simple, ~0.027$/requête pour complexe).
 - **TCDRM** (bleu) : Le prix moyen **diminue progressivement** après la création des réplicas.
@@ -75,6 +79,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Cumulative Cost](fig6_cumulative_cost.png)
 
 **Interprétation :**
+
 - Ce graphique montre le coût total cumulé au fil des requêtes.
 - **Avant P_SLA** : Les deux courbes sont identiques (pas de réplication).
 - **Après P_SLA** : La courbe TCDRM a une **pente plus faible** que NoRepLc.
@@ -90,9 +95,10 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Total Cost](fig7_total_cost.png)
 
 **Interprétation :**
+
 - Ce graphique empilé montre la répartition des coûts entre **CPU** (bleu), **Bande passante** (rouge), et **Réplication** (jaune).
 - **NoRepLc** : Coût dominé par la bande passante (~90% du coût total).
-- **TCDRM** : 
+- **TCDRM** :
   - Coût de bande passante **réduit** grâce aux réplicas locaux.
   - Coût de réplication **ajouté** (création + stockage des réplicas).
   - **Coût total légèrement supérieur** mais avec une **performance bien meilleure**.
@@ -107,6 +113,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL Replica Factor](fig1_replica_factor_4models.png)
 
 **Interprétation :**
+
 - Comparaison des 4 stratégies de réplication :
   - **NoRepLc** (rouge) : Aucune réplication (ligne à 0).
   - **TCDRM** (bleu) : Réplication à partir de q=200 (seuil fixe P_SLA).
@@ -122,6 +129,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL Response Time](fig2_response_time_4models.png)
 
 **Interprétation :**
+
 - **NoRepLc** : Temps de réponse constant et élevé (~200 ms simple, ~450 ms complexe).
 - **TCDRM** : Chute à q=200 (seuil fixe).
 - **Q-Learning** : Chute à **q=99** → Réduction des violations SLA de **50%** par rapport à TCDRM.
@@ -135,6 +143,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL BW Consumption](fig3_bw_consumption_4models.png)
 
 **Interprétation :**
+
 - **NoRepLc** : Consommation maximale (transferts inter-provider uniquement).
 - **TCDRM, Q-Learning, DQN** : Consommation réduite grâce à la réplication.
 - **DQN** montre la meilleure réduction car il réplique plus tôt et de manière plus efficace.
@@ -147,6 +156,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL Avg BW Price](fig4_avg_bw_price_4models.png)
 
 **Interprétation :**
+
 - **NoRepLc** : Prix constant (pas d'optimisation).
 - **DQN** (vert) : Courbe qui descend **le plus tôt** (q=79), atteignant le prix optimal plus rapidement.
 - **Q-Learning** (jaune) : Descente à q=99.
@@ -160,6 +170,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL Cumulative BW Price](fig5_cumulative_bw_price_4models.png)
 
 **Interprétation :**
+
 - **NoRepLc** : Coût cumulatif le plus élevé (ligne droite).
 - **DQN** : Coût cumulatif le plus bas grâce à la réplication précoce.
 - **Économies finales** (sur 1000 requêtes, simple) :
@@ -175,6 +186,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![RL Total Cost](fig6_total_cost_4models.png)
 
 **Interprétation :**
+
 - **NoRepLc** : Coût total le plus bas mais **performance la plus mauvaise**.
 - **TCDRM, Q-Learning, DQN** : Coûts totaux similaires, incluant le coût de réplication.
 - Le coût de réplication (jaune) est un **investissement** qui permet de réduire les coûts de bande passante futurs.
@@ -189,6 +201,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![NoRep Metrics](metrics_norep_simple.png)
 
 **Interprétation :**
+
 - **Response Time** : Oscille autour de 200 ms avec une forte variabilité (±20 ms).
 - **Cumulative BW Cost** : Croissance linéaire constante (~13.5$ sur 1000 requêtes).
 - **Cumulative SLA Violations** : Croissance linéaire, ~50% des requêtes violent le SLA.
@@ -203,6 +216,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![TCDRM Metrics](metrics_tcdrm_simple.png)
 
 **Interprétation :**
+
 - **Response Time** : Chute de 200 ms à ~85 ms à q=200.
 - **Cumulative BW Cost** : Pente réduite après q=200.
 - **Cumulative SLA Violations** : Croissance linéaire jusqu'à q=200, puis **plateau** (plus de violations).
@@ -217,6 +231,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Q-Learning Metrics](metrics_qlearning_simple.png)
 
 **Interprétation :**
+
 - **Response Time** : Chute à **q=99** (50% plus tôt que TCDRM).
 - **Cumulative SLA Violations** : ~50% moins de violations que TCDRM.
 - **Replica Count** : Réplication **progressive** (paliers visibles).
@@ -230,6 +245,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![DQN Metrics](metrics_dqn_simple.png)
 
 **Interprétation :**
+
 - **Response Time** : Chute à **q=79** (60% plus tôt que TCDRM).
 - **Cumulative SLA Violations** : ~60% moins de violations que TCDRM.
 - **Replica Count** : Réplication progressive avec paliers.
@@ -245,6 +261,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![NoRep Popularity](popularity_norep_simple.png)
 
 **Interprétation :**
+
 - **Normalized Popularity** : Croît linéairement de 0 à 5 (1000 requêtes / P_SLA=200).
 - **Replica Creation Timeline** : Aucun réplica créé (ligne à 0).
 - **Response Time & Replica Impact** : Temps de réponse constant autour de 200 ms, toujours au-dessus du seuil T_SLA.
@@ -257,6 +274,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![TCDRM Popularity](popularity_tcdrm_simple.png)
 
 **Interprétation :**
+
 - **Normalized Popularity** : Même croissance linéaire.
 - **Replica Creation Timeline** : **Trigger @ q200** → Réplication exactement au seuil P_SLA.
 - **Response Time & Replica Impact** : Chute nette à q=200, passant sous le seuil T_SLA.
@@ -269,6 +287,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![Q-Learning Popularity](popularity_qlearning_simple.png)
 
 **Interprétation :**
+
 - **Replica Creation Timeline** : **Trigger @ q99** → Réplication à 50% du seuil P_SLA.
 - **Réplication progressive** : Les paliers montrent l'intervalle de 100 requêtes entre chaque réplica.
 - **Response Time** : Descente plus graduelle que TCDRM grâce à la réplication progressive.
@@ -281,6 +300,7 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 ![DQN Popularity](popularity_dqn_simple.png)
 
 **Interprétation :**
+
 - **Replica Creation Timeline** : **Trigger @ q79** → Réplication à 40% du seuil P_SLA.
 - **Réplication progressive** : Intervalle de 80 requêtes entre chaque réplica.
 - **Response Time** : Descente la plus précoce parmi tous les modèles.
@@ -290,14 +310,14 @@ Ce document présente l'ensemble des graphiques générés par le projet TCDRM-A
 
 ## Résumé Comparatif
 
-| Métrique | NoRepLc | TCDRM | Q-Learning | DQN |
-|----------|---------|-------|------------|-----|
-| **Début réplication** | Jamais | q=200 | q=99 | q=79 |
-| **Réduction temps réponse** | 0% | 57% | 57% | 57% |
-| **Violations SLA** | ~500 | ~130 | ~65 | ~52 |
-| **Économie BW** | 0% | 15% | 18% | 20% |
-| **Coût total** | Bas | Moyen | Moyen | Moyen |
-| **Performance** | Mauvaise | Bonne | Très bonne | Excellente |
+| Métrique                    | NoRepLc  | TCDRM | Q-Learning | DQN        |
+| --------------------------- | -------- | ----- | ---------- | ---------- |
+| **Début réplication**       | Jamais   | q=200 | q=99       | q=79       |
+| **Réduction temps réponse** | 0%       | 57%   | 57%        | 57%        |
+| **Violations SLA**          | ~500     | ~130  | ~65        | ~52        |
+| **Économie BW**             | 0%       | 15%   | 18%        | 20%        |
+| **Coût total**              | Bas      | Moyen | Moyen      | Moyen      |
+| **Performance**             | Mauvaise | Bonne | Très bonne | Excellente |
 
 ---
 
@@ -320,4 +340,4 @@ Les résultats expérimentaux démontrent que :
 
 ---
 
-*Document généré automatiquement par TCDRM-ADAPTIVE*
+_Document généré automatiquement par TCDRM-ADAPTIVE_
