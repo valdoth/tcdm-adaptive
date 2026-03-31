@@ -107,10 +107,10 @@ public final class TcdrmConstants {
     // ==================================================================
     // Simulation (Paper Section 4.1)
     // ==================================================================
-    /** Number of queries per experiment (Paper: 1000) */
-    public static final int MAX_QUERIES = 1000;
+    /** Number of queries per experiment (Paper: 1000, WhatsApp: 3000) */
+    public static final int MAX_QUERIES = 3000;
     /** Budget initial ($) */
-    public static final double INITIAL_BUDGET = 1000.0;
+    public static final double INITIAL_BUDGET = 2000.0;  // Benchmark standard: 2000 instead of 1000
     
     // ==================================================================
     // Popularité pour la réplication (EMA avec décroissance exponentielle)
@@ -136,7 +136,7 @@ public final class TcdrmConstants {
     /** Pénalité de score pour les écritures (coût de synchronisation) */
     public static final double WRITE_PENALTY_FACTOR = 0.3;
     /** Seuil de popularité EMA pour déclencher la première réplication (0.0-1.0) */
-    public static final double EMA_REPLICATION_THRESHOLD = 0.4;
+    public static final double EMA_REPLICATION_THRESHOLD = 0.4; // retour à la valeur originale
     /** Seuil de popularité sous lequel une suppression devient envisageable (hystérésis) */
     public static final double EMA_DELETE_THRESHOLD = 0.30; // suppression un peu plus réactive
     /** Facteur de décroissance par requête sans accès (simule le refroidissement) */

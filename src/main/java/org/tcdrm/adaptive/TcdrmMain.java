@@ -44,61 +44,66 @@ public class TcdrmMain {
         new File("images").mkdirs();
 
         // Phase 1: Paper reproduction (TCDRM vs NoRepLc)
-        System.out.println("\n━━━ PHASE 1: Paper Figures (TCDRM vs NoRepLc) ━━━");
-        
-        BenchmarkData norepSimple = BenchmarkRunner.runNoRep(42L, false, "NoRepLc_Simple");
-        BenchmarkData tcdrmSimple = BenchmarkRunner.runTcdrm(42L, false, "TCDRM_Simple");
-        BenchmarkData norepComplex = BenchmarkRunner.runNoRep(42L, true, "NoRepLc_Complex");
-        BenchmarkData tcdrmComplex = BenchmarkRunner.runTcdrm(42L, true, "TCDRM_Complex");
-        
-        norepSimple.printSummary();
-        tcdrmSimple.printSummary();
-        norepComplex.printSummary();
-        tcdrmComplex.printSummary();
-        
-        // Export CSV metrics per model (inspired by legacy Simulation)
-        new File("metrics").mkdirs();
-        BenchmarkExporter.exportPerQueryCsv(norepSimple, "metrics/norep_simple.csv");
-        BenchmarkExporter.exportPerQueryCsv(tcdrmSimple, "metrics/tcdrm_simple.csv");
-        BenchmarkExporter.exportPerQueryCsv(norepComplex, "metrics/norep_complex.csv");
-        BenchmarkExporter.exportPerQueryCsv(tcdrmComplex, "metrics/tcdrm_complex.csv");
-        // Overtime averages (window=100 for readability)
-        BenchmarkExporter.exportOvertimeAverages(norepSimple, "metrics/log_overtime.csv", 100);
-        BenchmarkExporter.exportOvertimeAverages(tcdrmSimple, "metrics/log_overtime.csv", 100);
-        BenchmarkExporter.exportOvertimeAverages(norepComplex, "metrics/log_overtime.csv", 100);
-        BenchmarkExporter.exportOvertimeAverages(tcdrmComplex, "metrics/log_overtime.csv", 100);
+        BenchmarkData norepSimple = null, tcdrmSimple = null, norepComplex = null, tcdrmComplex = null;
+        if (!opts.rlOnly) {
+            System.out.println("\n━━━ PHASE 1: Paper Figures (TCDRM vs NoRepLc) ━━━");
+            
+            norepSimple = BenchmarkRunner.runNoRep(42L, false, "NoRepLc_Simple");
+            tcdrmSimple = BenchmarkRunner.runTcdrm(42L, false, "TCDRM_Simple");
+            norepComplex = BenchmarkRunner.runNoRep(42L, true, "NoRepLc_Complex");
+            tcdrmComplex = BenchmarkRunner.runTcdrm(42L, true, "TCDRM_Complex");
+            
+            norepSimple.printSummary();
+            tcdrmSimple.printSummary();
+            norepComplex.printSummary();
+            tcdrmComplex.printSummary();
+            
+            // Export CSV metrics per model (inspired by legacy Simulation)
+            new File("metrics").mkdirs();
+            BenchmarkExporter.exportPerQueryCsv(norepSimple, "metrics/norep_simple.csv");
+            BenchmarkExporter.exportPerQueryCsv(tcdrmSimple, "metrics/tcdrm_simple.csv");
+            BenchmarkExporter.exportPerQueryCsv(norepComplex, "metrics/norep_complex.csv");
+            BenchmarkExporter.exportPerQueryCsv(tcdrmComplex, "metrics/tcdrm_complex.csv");
+            // Overtime averages (window=100 for readability)
+            BenchmarkExporter.exportOvertimeAverages(norepSimple, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(tcdrmSimple, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(norepComplex, "metrics/log_overtime.csv", 100);
+            BenchmarkExporter.exportOvertimeAverages(tcdrmComplex, "metrics/log_overtime.csv", 100);
 
-        // Global summary for Phase 1
-        java.util.List<BenchmarkData> phase1Models = java.util.Arrays.asList(
-            norepSimple, tcdrmSimple, norepComplex, tcdrmComplex
-        );
-        BenchmarkExporter.exportSummaryCsv(phase1Models, "metrics/summary_phase1.csv");
+            // Global summary for Phase 1
+            java.util.List<BenchmarkData> phase1Models = java.util.Arrays.asList(
+                norepSimple, tcdrmSimple, norepComplex, tcdrmComplex
+            );
+            BenchmarkExporter.exportSummaryCsv(phase1Models, "metrics/summary_phase1.csv");
 
-        // Générer les graphiques du paper (Figs 2-7)
-        System.out.println("\n  Generating paper figures...");
-        ChartGenerator.generateReplicaFactor(tcdrmSimple, tcdrmComplex, "images/fig2_replica_factor.png");
-        ChartGenerator.generateResponseTime(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex, 
-            "images/fig3_response_time.png");
-        ChartGenerator.generateBwConsumption(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
-            "images/fig4_bw_consumption.png");
-        ChartGenerator.generateAvgBwPrice(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
-            "images/fig5_avg_bw_price.png");
-        ChartGenerator.generateCumulativeBwPrice(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
-            "images/fig6_cumulative_cost.png");
-        ChartGenerator.generateTotalCost(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
-            "images/fig7_total_cost.png");
-        
-        // Métriques détaillées par modèle (NoRep, TCDRM)
-        System.out.println("\n  Generating model metrics...");
-        ChartGenerator.generateModelMetrics(norepSimple, "images/metrics_norep_simple.png", false);
-        ChartGenerator.generateModelMetrics(tcdrmSimple, "images/metrics_tcdrm_simple.png", false);
-        
-        // Analyse de la popularité (NoRep, TCDRM)
-        System.out.println("\n  Generating popularity analysis...");
-        ChartGenerator.generatePopularityAnalysis(norepSimple, "images/popularity_norep_simple.png", false);
-        ChartGenerator.generatePopularityAnalysis(tcdrmSimple, "images/popularity_tcdrm_simple.png", false);
-        
-        System.out.println("\n✅ Phase 1 complete: Paper figures generated (Figs 2-7 + Metrics + Popularity)");
+            // Générer les graphiques du paper (Figs 2-7)
+            System.out.println("\n  Generating paper figures...");
+            ChartGenerator.generateReplicaFactor(tcdrmSimple, tcdrmComplex, "images/fig2_replica_factor.png");
+            ChartGenerator.generateResponseTime(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex, 
+                "images/fig3_response_time.png");
+            ChartGenerator.generateBwConsumption(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
+                "images/fig4_bw_consumption.png");
+            ChartGenerator.generateAvgBwPrice(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
+                "images/fig5_avg_bw_price.png");
+            ChartGenerator.generateCumulativeBwPrice(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
+                "images/fig6_cumulative_cost.png");
+            ChartGenerator.generateTotalCost(norepSimple, tcdrmSimple, norepComplex, tcdrmComplex,
+                "images/fig7_total_cost.png");
+            
+            // Métriques détaillées par modèle (NoRep, TCDRM)
+            System.out.println("\n  Generating model metrics...");
+            ChartGenerator.generateModelMetrics(norepSimple, "images/metrics_norep_simple.png", false);
+            ChartGenerator.generateModelMetrics(tcdrmSimple, "images/metrics_tcdrm_simple.png", false);
+            
+            // Analyse de la popularité (NoRep, TCDRM)
+            System.out.println("\n  Generating popularity analysis...");
+            ChartGenerator.generatePopularityAnalysis(norepSimple, "images/popularity_norep_simple.png", false);
+            ChartGenerator.generatePopularityAnalysis(tcdrmSimple, "images/popularity_tcdrm_simple.png", false);
+            
+            System.out.println("\n✅ Phase 1 complete: Paper figures generated (Figs 2-7 + Metrics + Popularity)");
+        } else {
+            System.out.println("\n(--rl-only) Phase 1 skipped by request.");
+        }
 
         if (opts.phase1Only) {
             System.out.println("\n  (--phase1-only) Phase 2 skipped. Connect Python + relancer sans cette option pour le RL.");

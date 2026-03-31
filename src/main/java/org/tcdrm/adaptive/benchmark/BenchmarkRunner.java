@@ -1,6 +1,7 @@
 package org.tcdrm.adaptive.benchmark;
 
 import org.tcdrm.adaptive.core.TcdrmConstants;
+import org.tcdrm.adaptive.core.RuntimeConfig;
 import org.tcdrm.adaptive.rl.PythonRLBridge;
 import org.tcdrm.adaptive.simulation.TcdrmSimulation;
 
@@ -18,7 +19,8 @@ public class BenchmarkRunner {
         
         double cumulCost = 0;
         
-        for (int q = 0; q < TcdrmConstants.MAX_QUERIES; q++) {
+        int maxQ = RuntimeConfig.getMaxQueries() != null ? RuntimeConfig.getMaxQueries() : TcdrmConstants.MAX_QUERIES;
+        for (int q = 0; q < maxQ; q++) {
             TcdrmSimulation.QueryResult result = sim.executeNoRepQuery();
             cumulCost += result.bwCost();
             
@@ -42,7 +44,8 @@ public class BenchmarkRunner {
         
         double cumulCost = 0;
         
-        for (int q = 0; q < TcdrmConstants.MAX_QUERIES; q++) {
+        int maxQ = RuntimeConfig.getMaxQueries() != null ? RuntimeConfig.getMaxQueries() : TcdrmConstants.MAX_QUERIES;
+        for (int q = 0; q < maxQ; q++) {
             TcdrmSimulation.QueryResult result = sim.executeTcdrmQuery();
             cumulCost += result.bwCost();
             
@@ -75,7 +78,8 @@ public class BenchmarkRunner {
         double lastCost = 0;
         double tSla = complex ? TcdrmConstants.TSLA_COMPLEX_MS : TcdrmConstants.TSLA_SIMPLE_MS;
         
-        for (int q = 0; q < TcdrmConstants.MAX_QUERIES; q++) {
+        int maxQ = RuntimeConfig.getMaxQueries() != null ? RuntimeConfig.getMaxQueries() : TcdrmConstants.MAX_QUERIES;
+        for (int q = 0; q < maxQ; q++) {
             // Construire l'état pour le modèle RL
             double[] state = sim.buildRLState(lastLatency, lastCost);
             double previousLatency = lastLatency;

@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 
 /**
  * Utility to export BenchmarkData metrics to CSV files, inspired by the
@@ -115,7 +117,14 @@ public final class BenchmarkExporter {
         if (f != null) f.mkdirs();
     }
 
-    private static final DecimalFormat DF = new DecimalFormat("###.######");
+    // Always use '.' as decimal separator to generate portable CSVs
+    private static final DecimalFormat DF;
+    static {
+        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.US);
+        sym.setDecimalSeparator('.') ;
+        DF = new DecimalFormat("###.######");
+        DF.setDecimalFormatSymbols(sym);
+    }
     private static String fmt(double v) { return DF.format(v); }
     private static double safeGet(java.util.List<Double> list, int i) {
         return safeGet(list, i, 0.0);

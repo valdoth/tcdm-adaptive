@@ -18,6 +18,9 @@ public final class RuntimeConfig {
     private static Double tinyTauHi = null;
     private static Double tinyTauLo = null;
 
+    // Optional override for the number of queries per experiment
+    private static Integer maxQueriesOverride = null;
+
     public static String getExecRegion() { return execRegion; }
     public static void setExecRegion(String region) { if (region != null && !region.isBlank()) execRegion = region; }
 
@@ -38,5 +41,9 @@ public final class RuntimeConfig {
         execRegion = "EU";
         popularityStrategy = "EMA";
         tinyWidth = null; tinyDepth = null; tinyAging = null; tinyTauHi = null; tinyTauLo = null;
+        maxQueriesOverride = null;
     }
+
+    public static void setMaxQueries(Integer n) { maxQueriesOverride = n; }
+    public static Integer getMaxQueries() { return maxQueriesOverride; }
 }

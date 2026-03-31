@@ -63,6 +63,50 @@ public final class LegacyWorkloadTemplates {
         return sets;
     }
 
+    /** Returns a list of fragment index sets for mixed queries - exact pattern from TcdrmEvaluation3000Cloudlet. */
+    public static List<int[]> generateMixed(List<DataFragment> frags, int totalQueries, long seed) {
+        Random rnd = new Random(seed);
+        List<int[]> sets = new ArrayList<>();
+        
+        // Pattern exact du code original: Query q1 avec File1, File31, File61
+        // Répétée CLOUDLET_REPEAT_NUMBER fois (150) pour 300 requêtes
+        // Mais nous voulons 3000 requêtes comme dans l'image WhatsApp
+        int repeatCount = totalQueries; // 3000 requêtes au lieu de 150
+        
+        // Trouver les indices pour File1, File31, File61 (pattern AWS, Azure, Google)
+        Map<String, List<Integer>> byProvider = groupByProvider(frags);
+        
+        for (int i = 0; i < repeatCount; i++) {
+            List<Integer> sel = new ArrayList<>();
+            
+            // File1 (AWS)
+            List<Integer> awsFiles = byProvider.get("AWS");
+            if (awsFiles != null && !awsFiles.isEmpty()) {
+                sel.add(awsFiles.get(i % awsFiles.size()));
+            }
+            
+            // File31 (Azure) 
+            List<Integer> azureFiles = byProvider.get("Azure");
+            if (azureFiles != null && !azureFiles.isEmpty()) {
+                sel.add(azureFiles.get(i % azureFiles.size()));
+            }
+            
+            // File61 (Google)
+            List<Integer> googleFiles = byProvider.get("Google");
+            if (googleFiles != null && !googleFiles.isEmpty()) {
+                sel.add(googleFiles.get(i % googleFiles.size()));
+            }
+            
+            // Assurer exactement 3 fichiers (un par provider)
+            while (sel.size() > 3) sel.remove(sel.size() - 1);
+            while (sel.size() < 3 && !frags.isEmpty()) sel.add(sel.size() % frags.size());
+            
+            sets.add(sel.stream().mapToInt(Integer::intValue).toArray());
+        }
+        
+        return sets;
+    }
+
     public static List<DataFragment> select(List<DataFragment> all, int[] idx) {
         List<DataFragment> out = new ArrayList<>(idx.length);
         for (int id : idx) if (id >= 0 && id < all.size()) out.add(all.get(id));

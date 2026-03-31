@@ -95,6 +95,64 @@ public class ChartGenerator {
         System.out.println("  [Fig 2] Replica Factor saved");
     }
 
+    // ==== Two-model RL (Q-Learning vs DQN) ====
+    public static void generateReplicaFactor2Models(BenchmarkData ql, BenchmarkData dqn, String filename) {
+        XYChart chart = new XYChartBuilder().width(800).height(500)
+            .title("Replica Factor — RL (2 models)").xAxisTitle("Number of queries").yAxisTitle("Number of replica").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, toDoubleList(ql.getReplicaCount())).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, toDoubleList(dqn.getReplicaCount())).setLineColor(COLOR_DQN);
+        try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
+    public static void generateResponseTime2Models(BenchmarkData ql, BenchmarkData dqn, double tSla, String filename) {
+        XYChart chart = new XYChartBuilder().width(800).height(500)
+            .title("Impact on Response Times — RL (2 models)").xAxisTitle("Number of Queries").yAxisTitle("Response time (ms)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, smooth(ql.getResponseTimeMs(), 20)).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, smooth(dqn.getResponseTimeMs(), 20)).setLineColor(COLOR_DQN);
+        chart.addSeries("T_SLA", java.util.Arrays.asList(0, x.get(x.size()-1)), java.util.Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
+        try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
+    public static void generateAvgBwPrice2Models(BenchmarkData ql, BenchmarkData dqn, String filename) {
+        XYChart chart = new XYChartBuilder().width(800).height(500)
+            .title("Avg. BW Price — RL (2 models)").xAxisTitle("Number of Queries").yAxisTitle("Price ($)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, ql.getAvgBwPrice()).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, dqn.getAvgBwPrice()).setLineColor(COLOR_DQN);
+        try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
+    public static void generateCumulativeBwPrice2Models(BenchmarkData ql, BenchmarkData dqn, String filename) {
+        XYChart chart = new XYChartBuilder().width(800).height(500)
+            .title("Cumulative BW Price — RL (2 models)").xAxisTitle("Number of Queries").yAxisTitle("Price ($)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, ql.getCumulativeCost()).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, dqn.getCumulativeCost()).setLineColor(COLOR_DQN);
+        try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
+    public static void generateBwConsumption2Models(BenchmarkData ql, BenchmarkData dqn, String filename) {
+        CategoryChart chart = new CategoryChartBuilder().width(800).height(500)
+            .title("BW Consumption — RL (2 models)").xAxisTitle("RL Models").yAxisTitle("BW (GByte)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        java.util.List<String> categories = java.util.Arrays.asList("Q-Learn", "DQN");
+        java.util.List<Double> interProv = java.util.Arrays.asList(ql.getTotalBwInterProviderGb(), dqn.getTotalBwInterProviderGb());
+        java.util.List<Double> interReg = java.util.Arrays.asList(ql.getTotalBwInterRegionGb(), dqn.getTotalBwInterRegionGb());
+        chart.addSeries("interProvider", categories, interProv).setFillColor(COLOR_INTER_PROVIDER);
+        chart.addSeries("interRegion", categories, interReg).setFillColor(COLOR_INTER_REGION);
+        try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+
     /**
      * Fig 2: Response Time (4 models) - 2 graphiques côte à côte
      */
@@ -672,6 +730,76 @@ public class ChartGenerator {
 
         BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
         System.out.println("  [RL-7] Total Cost " + type + " saved");
+    }
+
+    // =========================
+    // RL — 2 models (Q-Learning vs DQN)
+    // =========================
+
+    /** Response time comparison (2 models). */
+    public static void generateRL2ResponseTime(BenchmarkData ql, BenchmarkData dqn,
+                                               String filename, boolean complex) throws IOException {
+        double tSla = complex ? TcdrmConstants.TSLA_COMPLEX_MS : TcdrmConstants.TSLA_SIMPLE_MS;
+        XYChart chart = new XYChartBuilder()
+            .width(800).height(500)
+            .title("Response Time — RL (2 models)" + (complex ? " [Complex]" : " [Simple]"))
+            .xAxisTitle("Query Number").yAxisTitle("Response Time (ms)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, smooth(ql.getResponseTimeMs(), 20)).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, smooth(dqn.getResponseTimeMs(), 20)).setLineColor(COLOR_DQN);
+        chart.addSeries("T_SLA", Arrays.asList(0, x.size()-1), Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
+        BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
+        System.out.println("  [RL-2] Response Time (2 models) saved");
+    }
+
+    /** Replica count comparison (2 models). */
+    public static void generateRL2Replicas(BenchmarkData ql, BenchmarkData dqn,
+                                           String filename) throws IOException {
+        XYChart chart = new XYChartBuilder()
+            .width(800).height(500)
+            .title("Replica Count — RL (2 models)")
+            .xAxisTitle("Query Number").yAxisTitle("Replicas").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, toDoubleList(ql.getReplicaCount())).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, toDoubleList(dqn.getReplicaCount())).setLineColor(COLOR_DQN);
+        BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
+        System.out.println("  [RL-2] Replicas (2 models) saved");
+    }
+
+    /** Cumulative cost comparison (2 models). */
+    public static void generateRL2CumulativeCost(BenchmarkData ql, BenchmarkData dqn,
+                                                 String filename) throws IOException {
+        XYChart chart = new XYChartBuilder()
+            .width(800).height(500)
+            .title("Cumulative Cost — RL (2 models)")
+            .xAxisTitle("Query Number").yAxisTitle("Cumulative Cost ($)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, ql.getCumulativeCost()).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, dqn.getCumulativeCost()).setLineColor(COLOR_DQN);
+        BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
+        System.out.println("  [RL-2] Cumulative Cost (2 models) saved");
+    }
+
+    /** Avg BW price over time (2 models). */
+    public static void generateRL2AvgBwPrice(BenchmarkData ql, BenchmarkData dqn,
+                                             String filename) throws IOException {
+        XYChart chart = new XYChartBuilder()
+            .width(800).height(500)
+            .title("Avg BW Price — RL (2 models)")
+            .xAxisTitle("Query Number").yAxisTitle("Avg Cost ($/query)").build();
+        chart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
+        chart.getStyler().setMarkerSize(0);
+        List<Integer> x = ql.getQueryNumbers();
+        chart.addSeries("Q-Learning", x, ql.getAvgBwPrice()).setLineColor(COLOR_QLEARNING);
+        chart.addSeries("DQN", x, dqn.getAvgBwPrice()).setLineColor(COLOR_DQN);
+        BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
+        System.out.println("  [RL-2] Avg BW Price (2 models) saved");
     }
 
     /**

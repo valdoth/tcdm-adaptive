@@ -47,4 +47,7 @@ public interface PythonRLBridge {
     
     /** Save learned models to disk. */
     void saveModels();
+
+    /** Optional: preferred execution region (e.g., US/EU/AS). */
+    default String getPreferredExecRegion() { return null; }
 }
