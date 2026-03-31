@@ -88,6 +88,13 @@ public class BenchmarkRunner {
             int action;
             if ("qlearning".equals(modelType)) {
                 action = bridge.selectActionQLearning(state);
+                // Policy assist (anti-stall): si zone de décision atteinte et latence élevée,
+                // forcer une 1ère réplication quand l'agent reste en NOOP.
+                boolean replicateAllowed = (sim.getQueryCount() >= TcdrmConstants.POPULARITY_THRESHOLD)
+                    || (sim.getEmaPopularity() >= TcdrmConstants.EMA_REPLICATION_THRESHOLD);
+                if (action == 0 && replicateAllowed && sim.getCurrentReplicaCount() == 0) {
+                    action = 1; // REPLICATE: impulsion initiale dès que la zone de décision est atteinte
+                }
             } else {
                 action = bridge.selectActionDQN(state);
             }

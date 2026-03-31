@@ -220,8 +220,10 @@ public class TcdrmSimulation {
         // Mettre à jour la popularité EMA
         updateEmaPopularity(isRead);
         
-        // Appliquer l'action RL avec hystérésis anti-oscillation
-        if (action == 1 && currentReplicaCount < maxReplicas) {
+        // Appliquer l'action RL avec garde popularité/P_SLA et hystérésis anti-oscillation
+        boolean replicateAllowed = (queryCount >= TcdrmConstants.POPULARITY_THRESHOLD)
+            || (emaPopularity >= TcdrmConstants.EMA_REPLICATION_THRESHOLD);
+        if (action == 1 && currentReplicaCount < maxReplicas && replicateAllowed) {
             creationCost = createNextReplica();
             currentBudget -= creationCost;
         } else if (action == 2 && currentReplicaCount > 0) {

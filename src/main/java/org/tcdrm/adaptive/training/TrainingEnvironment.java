@@ -241,7 +241,10 @@ public class TrainingEnvironment {
     /** Masque d'actions valides: [noop, replicate, delete] */
     public boolean[] getActionMask() {
         int maxReplicas = TcdrmConstants.maxReplicasForQueryType(complex);
-        boolean canReplicate = lastReplicaCount < maxReplicas;
+        // Répliquer seulement si capacité dispo ET si zone de décision atteinte (P_SLA ou popularité EMA)
+        boolean decisionZone = simulation.getQueryCount() >= TcdrmConstants.POPULARITY_THRESHOLD
+            || simulation.getEmaPopularity() >= TcdrmConstants.EMA_REPLICATION_THRESHOLD;
+        boolean canReplicate = lastReplicaCount < maxReplicas && decisionZone;
         boolean canDelete = lastReplicaCount > 0;
         return new boolean[] { true, canReplicate, canDelete };
     }

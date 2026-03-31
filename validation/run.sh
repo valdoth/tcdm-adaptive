@@ -127,10 +127,10 @@ find . -maxdepth 1 -name "*.java" -print0 | xargs -0 -I{} javac -cp "$JAR" {}
 
 printf "\nℹ️  RL validation ready.\n"
 echo "   (If needed) Manual start: cd validation/python && uv sync && uv run python connect_to_java.py --port 25333"
-printf "\n▶ Java runners (unified: simple+complex):\n"
-echo "   java -cp .:$JAR QLearningEvaluation"
-echo "   java -cp .:$JAR DqnEvaluation"
-echo "   java -cp .:$JAR RlComparisonEvaluation"
+printf "\n▶ Java runners:\n"
+echo "   java -cp .:$JAR QLearningEvaluation          # Q-Learning (simple+complex)"
+echo "   java -cp .:$JAR DNNEvaluation               # DQN (simple+complex)"
+echo "   java -cp .:$JAR RLComparisonEvaluation      # QL vs DQN (2-models)"
 
 ensure_uv || true
 
@@ -141,14 +141,18 @@ run_with_python_client() {
   # Start Java (gateway opens on 25333)
   (java -cp .:$JAR "$main_class") &
   local JAVA_PID=$!
-  # Allow gateway to start listening
-  sleep 2
+  # Wait until gateway listens on 25333 (max 20s)
+  for i in $(seq 1 20); do
+    if lsof -i:25333 >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  # Ensure no stale Python client is running and free callback port
+  (pgrep -f 'connect_to_java.py' | xargs -r kill -9) >/dev/null 2>&1 || true
+  (lsof -ti:25334 | xargs -r kill -9) >/dev/null 2>&1 || true
   # Start Python client (prefer uv)
   if command -v uv >/dev/null 2>&1; then
     # Pass explicit model paths to ensure correctness
     echo "   → Launching Python client with explicit model paths"
-    # Free default Py4J callback port 25334 if occupied
-    (lsof -ti:25334 | xargs -r kill -9) >/dev/null 2>&1 || true
     (cd python && uv sync && nohup uv run python connect_to_java.py --port 25333 \
         --qlearning-model models/qlearning_cloudsim.pkl \
         --dqn-model models/dqn_cloudsim.pt \
@@ -156,14 +160,16 @@ run_with_python_client() {
   else
     start_python_client_with_venv
   fi
+  # Optional: brief tail for diagnostics
+  sleep 1; tail -n 5 /tmp/tcdrm_py4j.log 2>/dev/null || true
   # Wait for Java process to finish
   wait "$JAVA_PID" || true
 }
 
 # Always run unified runners (each does simple+complex)
 run_with_python_client QLearningEvaluation
-run_with_python_client DqnEvaluation
-run_with_python_client RlComparisonEvaluation
+run_with_python_client DNNEvaluation
+run_with_python_client RLComparisonEvaluation
 
 printf "\n📊 Generated files:\n"
 echo "Images:"

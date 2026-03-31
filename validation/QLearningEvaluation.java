@@ -2,7 +2,7 @@ import org.tcdrm.adaptive.api.TcdrmAdapter;
 
 /**
  * Unified Q-Learning validation runner (EMA by default).
- * - Runs simple then complex workloads in a single execution
+ * - Runs simple then complex in a single Python session
  * - Exports CSVs and images into validation/{metrics,images}
  */
 public class QLearningEvaluation {
@@ -13,14 +13,9 @@ public class QLearningEvaluation {
         try {
             // Reset config (defaults to EMA); no createArchitecture() needed
             TcdrmAdapter.initSimulation();
-            // Keep 3000 queries unless overridden externally
-            TcdrmAdapter.setMaxQueries(3000);
-
-            // Simple
-            TcdrmAdapter.runQlearningSimple(TIMEOUT_SEC);
-            // Complex
-            TcdrmAdapter.runQlearningComplex(TIMEOUT_SEC);
-
+            // Keep shorter runs for validation speed
+            TcdrmAdapter.setMaxQueries(600);
+            TcdrmAdapter.runQlearningBoth(TIMEOUT_SEC);
             System.out.println("\n✅ Q-Learning simple+complex complete → images/ & metrics/\n");
         } catch (Exception e) {
             e.printStackTrace();
