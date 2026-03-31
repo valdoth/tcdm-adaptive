@@ -51,8 +51,8 @@ public class TcdrmSimulation {
         this.rnd = new Random(seed);
         this.complex = complex;
         this.execProvider = "Google";
-        // Align with legacy examples: EU-origin workload by default
-        this.execRegion = "EU";
+        // Runtime-configurable (default EU)
+        this.execRegion = org.tcdrm.adaptive.core.RuntimeConfig.getExecRegion();
         this.currentReplicaCount = 0;
         this.currentBudget = TcdrmConstants.INITIAL_BUDGET;
         this.queryCount = 0;
@@ -61,6 +61,15 @@ public class TcdrmSimulation {
         // Créer les fragments distribués sur les providers
         this.fragments = createDistributedFragments();
         this.workloadSets = buildLegacyWorkloadSets(seed);
+
+        // Popularity strategy from RuntimeConfig
+        String strat = org.tcdrm.adaptive.core.RuntimeConfig.getPopularityStrategy();
+        Integer w = org.tcdrm.adaptive.core.RuntimeConfig.getTinyWidth();
+        Integer d = org.tcdrm.adaptive.core.RuntimeConfig.getTinyDepth();
+        Integer a = org.tcdrm.adaptive.core.RuntimeConfig.getTinyAging();
+        Double hi = org.tcdrm.adaptive.core.RuntimeConfig.getTinyTauHi();
+        Double lo = org.tcdrm.adaptive.core.RuntimeConfig.getTinyTauLo();
+        configurePopularity(strat, w, d, a, hi, lo);
     }
 
     /**

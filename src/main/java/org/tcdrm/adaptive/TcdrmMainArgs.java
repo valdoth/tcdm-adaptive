@@ -15,14 +15,17 @@ public final class TcdrmMainArgs {
     public final boolean help;
     /** Si false, nivaux de log CloudSim Plus plus bavards (INFO). */
     public final boolean quietCloudSim;
+    /** Exécuter uniquement la phase RL (pas de benchmarks papier). */
+    public final boolean rlOnly;
 
     private TcdrmMainArgs(boolean phase1Only, boolean headlessCharts, int pythonConnectTimeoutSec,
-                         boolean help, boolean quietCloudSim) {
+                         boolean help, boolean quietCloudSim, boolean rlOnly) {
         this.phase1Only = phase1Only;
         this.headlessCharts = headlessCharts;
         this.pythonConnectTimeoutSec = pythonConnectTimeoutSec;
         this.help = help;
         this.quietCloudSim = quietCloudSim;
+        this.rlOnly = rlOnly;
     }
 
     static TcdrmMainArgs parse(String[] args) {
@@ -31,6 +34,7 @@ public final class TcdrmMainArgs {
         int pyTimeout = 120;
         boolean help = false;
         boolean verbose = false;
+        boolean rlOnly = false;
 
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
@@ -46,6 +50,9 @@ public final class TcdrmMainArgs {
                     break;
                 case "--verbose":
                     verbose = true;
+                    break;
+                case "--rl-only":
+                    rlOnly = true;
                     break;
                 case "--py-timeout":
                     if (i + 1 < args.length) {
@@ -70,7 +77,7 @@ public final class TcdrmMainArgs {
             }
         }
 
-        return new TcdrmMainArgs(phase1Only, headlessCharts, pyTimeout, help, !verbose);
+        return new TcdrmMainArgs(phase1Only, headlessCharts, pyTimeout, help, !verbose, rlOnly);
     }
 
     static void printHelp() {
@@ -82,6 +89,7 @@ public final class TcdrmMainArgs {
               --headless        Forcer java.awt.headless=true pour l'export PNG (défaut: activé).
               --with-awt        Désactiver headless (fenêtre / serveur graphique requis).
               --py-timeout N    Secondes d'attente du client Py4J (défaut: 120, env TCDRM_PY_TIMEOUT_SEC).
+                            --rl-only        Exécuter uniquement la phase RL (Q-Learning + DQN), sans benchmarks papier.
               --verbose         Journaux CloudSim Plus détaillés (placement VM, arrêt DC, etc.).
               -h, --help        Affiche cette aide.
             """);
