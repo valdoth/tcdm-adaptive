@@ -115,7 +115,6 @@ public class ChartGenerator {
         List<Integer> x = ql.getQueryNumbers();
         chart.addSeries("Q-Learning", x, smooth(ql.getResponseTimeMs(), 20)).setLineColor(COLOR_QLEARNING);
         chart.addSeries("DQN", x, smooth(dqn.getResponseTimeMs(), 20)).setLineColor(COLOR_DQN);
-        chart.addSeries("T_SLA", java.util.Arrays.asList(0, x.get(x.size()-1)), java.util.Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
         try { BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG); } catch (IOException e) { throw new RuntimeException(e); }
     }
 
@@ -749,7 +748,6 @@ public class ChartGenerator {
         List<Integer> x = ql.getQueryNumbers();
         chart.addSeries("Q-Learning", x, smooth(ql.getResponseTimeMs(), 20)).setLineColor(COLOR_QLEARNING);
         chart.addSeries("DQN", x, smooth(dqn.getResponseTimeMs(), 20)).setLineColor(COLOR_DQN);
-        chart.addSeries("T_SLA", Arrays.asList(0, x.size()-1), Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
         BitmapEncoder.saveBitmap(chart, filename, BitmapEncoder.BitmapFormat.PNG);
         System.out.println("  [RL-2] Response Time (2 models) saved");
     }
@@ -823,7 +821,6 @@ public class ChartGenerator {
             .title("Response Time").xAxisTitle("Query").yAxisTitle("Time (ms)").build();
         timeChart.getStyler().setMarkerSize(0);
         timeChart.addSeries("Response Time", x, smooth(data.getResponseTimeMs(), 20)).setLineColor(COLOR_TCDRM);
-        timeChart.addSeries("T_SLA", Arrays.asList(0, x.size()-1), Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
         g.drawImage(BitmapEncoder.getBufferedImage(timeChart), 30, 40, null);
         
         // 2. Cumulative BW Cost
@@ -905,7 +902,6 @@ public class ChartGenerator {
             .title("Response Time & Replica Impact").xAxisTitle("Query").yAxisTitle("Time (ms)").build();
         timeChart.getStyler().setMarkerSize(0);
         timeChart.addSeries("Response Time", x, smooth(data.getResponseTimeMs(), 20)).setLineColor(COLOR_TCDRM);
-        timeChart.addSeries("T_SLA", Arrays.asList(0, x.size()-1), Arrays.asList(tSla, tSla)).setLineColor(Color.RED);
         g.drawImage(BitmapEncoder.getBufferedImage(timeChart), 30, 450, null);
         
         // 4. Popularity Impact on Response Time
